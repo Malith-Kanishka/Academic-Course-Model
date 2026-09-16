@@ -10,7 +10,7 @@ load_dotenv()
 class SocraticAdversary:
     def __init__(self):
         # We connect to Groq's lightning-fast Llama 3 model
-        self.llm = ChatGroq(model_name="llama3-8b-8192", temperature=0.7)
+        self.llm = ChatGroq(model_name="openai/gpt-oss-20b", temperature=0.7)
         
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a Socratic tutor in a live oral examination. 
