@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\nisal\\OneDrive\\Desktop\\SEF_project\\Academic-Course-Model\\src\\ACM.Backend\\ACM.Backend.csproj": {}
+    "D:\\SEF_project\\Academic-Course-Model\\src\\ACM.Backend\\ACM.Backend.csproj": {}
   },
   "projects": {
-    "C:\\Users\\nisal\\OneDrive\\Desktop\\SEF_project\\Academic-Course-Model\\src\\ACM.Backend\\ACM.Backend.csproj": {
+    "D:\\SEF_project\\Academic-Course-Model\\src\\ACM.Backend\\ACM.Backend.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\nisal\\OneDrive\\Desktop\\SEF_project\\Academic-Course-Model\\src\\ACM.Backend\\ACM.Backend.csproj",
+        "projectUniqueName": "D:\\SEF_project\\Academic-Course-Model\\src\\ACM.Backend\\ACM.Backend.csproj",
         "projectName": "ACM.Backend",
-        "projectPath": "C:\\Users\\nisal\\OneDrive\\Desktop\\SEF_project\\Academic-Course-Model\\src\\ACM.Backend\\ACM.Backend.csproj",
+        "projectPath": "D:\\SEF_project\\Academic-Course-Model\\src\\ACM.Backend\\ACM.Backend.csproj",
         "packagesPath": "C:\\Users\\nisal\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\nisal\\OneDrive\\Desktop\\SEF_project\\Academic-Course-Model\\src\\ACM.Backend\\obj\\",
+        "outputPath": "D:\\SEF_project\\Academic-Course-Model\\src\\ACM.Backend\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\nisal\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -62,6 +62,10 @@
             "Npgsql.EntityFrameworkCore.PostgreSQL": {
               "target": "Package",
               "version": "[8.0.0, )"
+            },
+            "Swashbuckle.AspNetCore": {
+              "target": "Package",
+              "version": "[10.2.3, )"
             }
           },
           "imports": [
