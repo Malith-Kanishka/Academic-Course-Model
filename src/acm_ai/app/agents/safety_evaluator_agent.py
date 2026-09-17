@@ -1,6 +1,8 @@
 import sys
 import os
 import json
+import urllib.request
+import urllib.error
 from typing import List, Dict, Any
 from pydantic import BaseModel
 
@@ -30,12 +32,13 @@ class EvaluationSummaryDTO(BaseModel):
 class SafetyEvaluatorAgent:
     """
     Member 4 (Rashmika) - Agentic AI Subsystem Component.
-    Enforces deterministic validation rules and the mandatory Human-in-the-Loop pause state.
+    Enforces deterministic validation rules, 7-day remedial plan drafting,
+    and the mandatory Human-in-the-Loop (HITL) pause state.
     """
-    def evaluate_session(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def evaluate_session(self, payload: Dict[str, Any], send_to_backend: bool = True) -> Dict[str, Any]:
         data = SessionFinalTranscriptDTO(**payload)
         
-        # 1. Execute tool: Deterministic grade calculation
+        # 1. Execute tool: Mathematical grade calculation formula
         grade_result = compute_deterministic_grade(
             correct_count=data.correct_answers,
             total_questions=data.total_questions,
@@ -47,7 +50,7 @@ class SafetyEvaluatorAgent:
         requires_hitl = score < 65 or len(data.flagged_misconceptions) > 0
         state = "PAUSED_FOR_PROFESSOR_APPROVAL" if requires_hitl else "APPROVED_ACTIVE"
         
-        # 3. Execute tool: Draft remedial plan
+        # 3. Execute tool: Draft 7-day remedial study plan
         remedial_data = create_draft_remedial_plan(
             student_id=data.student_id,
             misconceptions=data.flagged_misconceptions
@@ -62,7 +65,32 @@ class SafetyEvaluatorAgent:
             requires_human_approval=requires_hitl
         )
         
-        return output.model_dump()
+        result_dict = output.model_dump()
+
+        # 4. HTTP Bridge: Post evaluation results to ASP.NET Core Web API (Standard Library)
+        if send_to_backend:
+            try:
+                backend_url = "http://localhost:5000/api/approval/evaluate"
+                backend_payload = {
+                    "sessionId": data.session_id,
+                    "studentId": data.student_id,
+                    "topicName": data.topic_name,
+                    "finalScore": score,
+                    "flaggedMisconceptions": data.flagged_misconceptions
+                }
+                json_bytes = json.dumps(backend_payload).encode("utf-8")
+                req = urllib.request.Request(
+                    backend_url,
+                    data=json_bytes,
+                    headers={"Content-Type": "application/json"},
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=5) as response:
+                    print(f"[HTTP Sync] Backend status code: {response.getcode()}")
+            except Exception as e:
+                print(f"[HTTP Sync Warning] Backend API unreachable: {e}")
+
+        return result_dict
 
 if __name__ == "__main__":
     # Isolated Agent Test Run
@@ -75,5 +103,6 @@ if __name__ == "__main__":
         "total_questions": 10,
         "flagged_misconceptions": ["Confused Dependency Injection lifetimes (Transient vs Singleton)"]
     }
-    result = agent.evaluate_session(sample_input)
+    # Run test locally without attempting API dispatch
+    result = agent.evaluate_session(sample_input, send_to_backend=False)
     print("Safety Evaluator Agent Test Output:\n", json.dumps(result, indent=2))
