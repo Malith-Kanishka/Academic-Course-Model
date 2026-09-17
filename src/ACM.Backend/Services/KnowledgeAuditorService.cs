@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using ACM.Backend.Core.Entities;
+using System.Text.Json.Serialization;
 
 namespace ACM.Backend.Services
 {
@@ -16,41 +17,55 @@ namespace ACM.Backend.Services
         {
             try
             {
+                // Prepare payload matching your FastAPI AuditRequest schema
                 var payload = new
                 {
-                    completed_topics = new List<string> { "Intro" }, // Pass actual completed user topics here
+                    completed_topics = new List<string> { "AI_Foundations" }, // Mock or fetch student's completed topics here
                     target_topic = topic.Title,
-                    rules_db = new List<object>()
+                    rules_db = new List<object>
+                    {
+                        new
+                        {
+                            premises = new List<string> { "AI_Foundations" },
+                            conclusion = topic.Title
+                        }
+                    }
                 };
 
-                // Calls your Python FastAPI endpoint
+                // Calls the FastAPI endpoint we just verified
                 var response = await _httpClient.PostAsJsonAsync("api/ai/audit", payload);
                 if (response.IsSuccessStatusCode)
                 {
                     var result = await response.Content.ReadFromJsonAsync<PythonAuditResponse>();
                     if (result != null)
                     {
+                        Console.WriteLine($"DEBUG: IsUnlocked = {result.IsUnlocked}, Message = {result.Message}");
                         return (result.IsUnlocked, result.Message);
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Fallback local validation if Python service is offline
-                if (string.IsNullOrWhiteSpace(topic.Title) || topic.Title.Length < 3)
-                {
-                    return (false, "Audit Failed: Topic title is too brief.");
-                }
+                // Fallback if Python service is temporarily unreachable
+                return (false, $"Audit Bridge Error: {ex.Message}");
             }
 
-            return (true, "Audit Passed via Python AI Agent layer.");
+            return (false, "Python AI Audit returned an unsuccessful status code.");
         }
     }
 
     public class PythonAuditResponse
-    {
-        public string TargetTopic { get; set; } = string.Empty;
-        public bool IsUnlocked { get; set; }
-        public string Message { get; set; } = string.Empty;
-    }
+{
+    [JsonPropertyName("target_topic")]
+    public string TargetTopic { get; set; } = string.Empty;
+
+    [JsonPropertyName("is_unlocked")]
+    public bool IsUnlocked { get; set; }
+
+    [JsonPropertyName("derived_knowledge")]
+    public List<string> DerivedKnowledge { get; set; } = new();
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+}
 }

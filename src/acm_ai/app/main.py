@@ -2,11 +2,18 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any, Set
 
+
 app = FastAPI(title="ACM AI Inference Engine (Member 2)")
 
 class AuditRequest(BaseModel):
     completed_topics: List[str]
     target_topic: str
+    rules_db: List[Dict[str, Any]]
+
+class AStarFilterRequest(BaseModel):
+    current_node: str
+    potential_neighbors: List[str]
+    completed_topics: List[str]
     rules_db: List[Dict[str, Any]]
 
 class KnowledgeBaseInferenceEngine:
@@ -63,3 +70,17 @@ async def audit_topic_endpoint(request: AuditRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ai/filter-neighbors")
+async def filter_neighbors_endpoint(request: AStarFilterRequest):
+    valid_neighbors = filter_astar_neighbors(
+        current_node=request.current_node,
+        potential_neighbors=request.potential_neighbors,
+        completed_topics=request.completed_topics,
+        rules_db=request.rules_db
+    )
+    return {
+        "current_node": request.current_node,
+        "valid_neighbors": valid_neighbors,
+        "count": len(valid_neighbors)
+    }
