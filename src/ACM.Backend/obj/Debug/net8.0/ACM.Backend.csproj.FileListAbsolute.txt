@@ -104,3 +104,4 @@ C:\Users\Malith Kanishka\Documents\Projects\Academic Course Model\Academic-Cours
 C:\Users\Malith Kanishka\Documents\Projects\Academic Course Model\Academic-Course-Model\src\ACM.Backend\obj\Debug\net8.0\ACM.Backend.pdb
 C:\Users\Malith Kanishka\Documents\Projects\Academic Course Model\Academic-Course-Model\src\ACM.Backend\obj\Debug\net8.0\ACM.Backend.genruntimeconfig.cache
 C:\Users\Malith Kanishka\Documents\Projects\Academic Course Model\Academic-Course-Model\src\ACM.Backend\obj\Debug\net8.0\ref\ACM.Backend.dll
+C:\Users\Malith Kanishka\Documents\Projects\Academic Course Model\Academic-Course-Model\src\ACM.Backend\bin\Debug\net8.0\ACM.Backend.staticwebassets.runtime.json

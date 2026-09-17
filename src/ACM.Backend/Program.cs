@@ -18,6 +18,7 @@ builder.Services.AddDbContext<ACMDbContext>(options =>
 
 // 3. Register your Member 3 Services (Dependency Injection)
 // This tells the API: "Whenever a controller asks for ISessionService, give them SessionService"
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<ISessionService, SessionService>();
 
 // (Your teammates will add their services here later)
