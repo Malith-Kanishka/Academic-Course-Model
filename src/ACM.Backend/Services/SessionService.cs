@@ -1,5 +1,8 @@
 using System;
 using System.IO;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using ACM.Backend.Core.Interfaces;
@@ -12,11 +15,13 @@ namespace ACM.Backend.Services
     public class SessionService : ISessionService
     {
         private readonly ACMDbContext _context;
+        private readonly HttpClient _httpClient;
 
-        // Constructor Injection for the database
-        public SessionService(ACMDbContext context)
+        // Inject the Database AND the HttpClientFactory
+        public SessionService(ACMDbContext context, IHttpClientFactory httpClientFactory)
         {
             _context = context;
+            _httpClient = httpClientFactory.CreateClient();
         }
 
         public async Task<StudySession> StartSessionAsync(SessionStartDto dto)
@@ -30,7 +35,7 @@ namespace ACM.Backend.Services
             };
 
             _context.StudySessions.Add(session);
-            await _context.SaveChangesAsync(); // Saves to PostgreSQL
+            await _context.SaveChangesAsync();
 
             return session;
         }
@@ -38,11 +43,9 @@ namespace ACM.Backend.Services
         public async Task<string> ProcessStudentAudioAsync(AudioStreamDto dto)
         {
             // 1. Save the raw .m4a audio file locally
-            // In a real production app, you would upload this to AWS S3 or Azure Blob Storage
             var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "audio");
             Directory.CreateDirectory(uploadsFolder);
             
-            // Create a unique file name so files don't overwrite each other
             var fileName = $"{Guid.NewGuid()}_{dto.AudioFile.FileName}";
             var filePath = Path.Combine(uploadsFolder, fileName);
 
@@ -51,8 +54,8 @@ namespace ACM.Backend.Services
                 await dto.AudioFile.CopyToAsync(stream);
             }
 
-            // 2. Transcribe Audio (We will connect the real Whisper API here later)
-            var transcribedText = $"[Simulated Transcription of {dto.AudioFile.FileName}]: I think polymorphism means classes share an interface."; 
+            // 2. Transcribe Audio (Mocked for now until we add Whisper API)
+            var transcribedText = $"[Simulated Transcription]: I think polymorphism means classes share an interface."; 
 
             // 3. Save Student's Dialogue Turn to Database
             var studentTurn = new DialogueTurn
@@ -67,28 +70,48 @@ namespace ACM.Backend.Services
             _context.DialogueTurns.Add(studentTurn);
             await _context.SaveChangesAsync();
 
-            // 4. Send text to Python LangGraph AI Service (We will connect this later)
-            // The AI acts as the "Novice" and misunderstands the student
-            var aiResponseText = "Wait, what is an interface? Like a user interface with buttons?";
+            // ==========================================
+            // 4. CALL THE PYTHON FASTAPI MICROSERVICE
+            // ==========================================
+            var payload = new
+            {
+                session_id = dto.SessionId.ToString(),
+                student_text = transcribedText
+            };
 
-            // 5. Save the AI's response to the Database
+            var jsonPayload = JsonSerializer.Serialize(payload);
+            var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+            // Make the POST request to your running Python server
+            var response = await _httpClient.PostAsync("http://127.0.0.1:8000/api/ai/process", content);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception($"Python AI Service failed with status code: {response.StatusCode}");
+            }
+
+            // Read the JSON response and extract the 'ai_text'
+            var responseString = await response.Content.ReadAsStringAsync();
+            using var jsonDoc = JsonDocument.Parse(responseString);
+            var aiResponseText = jsonDoc.RootElement.GetProperty("ai_text").GetString();
+
+            // 5. Save the real Groq AI response to the Database
             var aiTurn = new DialogueTurn
             {
                 SessionId = dto.SessionId,
-                Speaker = SpeakerType.AI_Novice,
-                Text = aiResponseText,
+                Speaker = SpeakerType.AI_Socratic,
+                Text = aiResponseText!,
                 Timestamp = DateTime.UtcNow
             };
             
             _context.DialogueTurns.Add(aiTurn);
             await _context.SaveChangesAsync();
 
-            return aiResponseText;
+            return aiResponseText!;
         }
 
         public async Task<StudySession> GetSessionHistoryAsync(Guid sessionId)
         {
-            // Use .Include() to eagerly fetch all dialogue turns associated with this session
             return await _context.StudySessions
                 .Include(s => s.DialogueTurns)
                 .FirstOrDefaultAsync(s => s.Id == sessionId);
