@@ -14,6 +14,11 @@ builder.Services.AddScoped<KnowledgeAuditorService>();
 builder.Services.AddDbContext<ACMDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddHttpClient<KnowledgeAuditorService>(client =>
+{
+    client.BaseAddress = new Uri("http://localhost:8000/"); // Python FastAPI server URL
+});
+
 var app = builder.Build();
 
 // Enable Swagger unconditionally for testing
