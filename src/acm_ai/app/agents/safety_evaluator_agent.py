@@ -93,16 +93,17 @@ class SafetyEvaluatorAgent:
         return result_dict
 
 if __name__ == "__main__":
-    # Isolated Agent Test Run
+    # Isolated Agent Test Run with Live API Bridge
     agent = SafetyEvaluatorAgent()
     sample_input = {
-        "session_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+        "session_id": "8e12f451-9988-4a11-b1d2-009988aabbaa",
         "student_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
-        "topic_name": "ASP.NET Middleware Architecture",
-        "correct_answers": 5,
+        "topic_name": "ASP.NET Core Middleware",
+        "correct_answers": 4,
         "total_questions": 10,
-        "flagged_misconceptions": ["Confused Dependency Injection lifetimes (Transient vs Singleton)"]
+        "flaggedMisconceptions": ["Misunderstood Middleware Execution Order"]
     }
-    # Run test locally without attempting API dispatch
-    result = agent.evaluate_session(sample_input, send_to_backend=False)
-    print("Safety Evaluator Agent Test Output:\n", json.dumps(result, indent=2))
+    
+    # Enable HTTP Sync to send evaluation to C# Backend
+    result = agent.evaluate_session(sample_input, send_to_backend=True)
+    print("\nSafety Evaluator Agent Local Result:\n", json.dumps(result, indent=2))
