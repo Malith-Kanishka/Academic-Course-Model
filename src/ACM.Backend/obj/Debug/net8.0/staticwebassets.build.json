@@ -1,0 +1,58 @@
+{
+  "Version": 1,
+  "Hash": "HTJ8uAJOXyaRWNWUkQGuiGMdJuA+uQsJYDI3/V9854Q=",
+  "Source": "ACM.Backend",
+  "BasePath": "_content/ACM.Backend",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [
+    {
+      "Name": "ACM.Backend\\wwwroot",
+      "Source": "ACM.Backend",
+      "ContentRoot": "C:\\Users\\Malith Kanishka\\Documents\\Projects\\Academic Course Model\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\",
+      "BasePath": "_content/ACM.Backend",
+      "Pattern": "**"
+    }
+  ],
+  "Assets": [
+    {
+      "Identity": "C:\\Users\\Malith Kanishka\\Documents\\Projects\\Academic Course Model\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\uploads\\audio\\011e7604-be55-455e-916a-c04b9ae0daec_012345.wav",
+      "SourceId": "ACM.Backend",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\Malith Kanishka\\Documents\\Projects\\Academic Course Model\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\",
+      "BasePath": "_content/ACM.Backend",
+      "RelativePath": "uploads/audio/011e7604-be55-455e-916a-c04b9ae0daec_012345.wav",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\uploads\\audio\\011e7604-be55-455e-916a-c04b9ae0daec_012345.wav"
+    },
+    {
+      "Identity": "C:\\Users\\Malith Kanishka\\Documents\\Projects\\Academic Course Model\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\uploads\\audio\\3048f2fc-6c84-4ec8-a93e-431b3d03985b_012345.wav",
+      "SourceId": "ACM.Backend",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\Users\\Malith Kanishka\\Documents\\Projects\\Academic Course Model\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\",
+      "BasePath": "_content/ACM.Backend",
+      "RelativePath": "uploads/audio/3048f2fc-6c84-4ec8-a93e-431b3d03985b_012345.wav",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\uploads\\audio\\3048f2fc-6c84-4ec8-a93e-431b3d03985b_012345.wav"
+    }
+  ]
+}
