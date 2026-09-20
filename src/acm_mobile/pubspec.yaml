@@ -1,1 +1,4 @@
 name: acm_mobile
+
+environment:
+  sdk: '^3.6.0'
