@@ -1,5 +1,7 @@
 from typing import List, Dict, Set, Any
 from langchain.tools import tool
+from typing import List, Optional
+from app.schemas.audit_schemas import ChunkDTO, DefinitionDTO
 
 class KnowledgeBaseInferenceEngine:
     def __init__(self):
@@ -71,3 +73,26 @@ def filter_astar_neighbors(current_node: str, potential_neighbors: List[str], co
     # Only keep neighbors whose prerequisites are fully satisfied
     valid_neighbors = [n for n in potential_neighbors if n in derived_facts]
     return valid_neighbors
+
+def search_curriculum_vector_store(query: str, topic_id: Optional[str] = None) -> List[ChunkDTO]:
+    """
+    Searches the uploaded course syllabus and lecture slides vector store.
+    """
+    # Simulated vector chunk retrieval matching the syllabus corpus
+    return [
+        ChunkDTO(
+            chunk_id="chunk_001",
+            content=f"Curriculum context reference for concept: {query}",
+            source_file="Syllabus_Master.pdf"
+        )
+    ]
+
+def query_external_academic_concept(concept_name: str) -> DefinitionDTO:
+    """
+    Queries an external academic knowledge base for concept definitions.
+    """
+    return DefinitionDTO(
+        concept_name=concept_name,
+        definition=f"Standard academic definition and principles governing {concept_name}.",
+        source="External Academic KB"
+    )

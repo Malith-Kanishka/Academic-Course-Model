@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any, Set
+from app.schemas.audit_schemas import FactAuditRequest, FactAuditResultDTO
+from app.agents.knowledge_auditor_agent import audit_student_claim
 
 
 app = FastAPI(title="ACM AI Inference Engine (Member 2)")
@@ -84,3 +86,7 @@ async def filter_neighbors_endpoint(request: AStarFilterRequest):
         "valid_neighbors": valid_neighbors,
         "count": len(valid_neighbors)
     }
+
+@app.post("/api/ai/audit", response_model=FactAuditResultDTO)
+async def audit_endpoint(request: FactAuditRequest):
+    return audit_student_claim(request)
