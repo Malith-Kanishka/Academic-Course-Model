@@ -1,11 +1,77 @@
 {
   "Version": 1,
-  "Hash": "0yTxYcHZO8Q0bLS8V3K/i1bwap1iW363YVQ6RluPFMw=",
+  "Hash": "fyNaCzdE+6g80DXsqiE72V7dDgjSlbCOVUJ/5jPFYDU=",
   "Source": "ACM.Backend",
   "BasePath": "_content/ACM.Backend",
   "Mode": "Default",
   "ManifestType": "Build",
   "ReferencedProjectsConfiguration": [],
-  "DiscoveryPatterns": [],
-  "Assets": []
+  "DiscoveryPatterns": [
+    {
+      "Name": "ACM.Backend\\wwwroot",
+      "Source": "ACM.Backend",
+      "ContentRoot": "C:\\professional\\SLIIT\\YEAR 3\\SEM 1\\SEF\\SEF PROJECT\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\",
+      "BasePath": "_content/ACM.Backend",
+      "Pattern": "**"
+    }
+  ],
+  "Assets": [
+    {
+      "Identity": "C:\\professional\\SLIIT\\YEAR 3\\SEM 1\\SEF\\SEF PROJECT\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\uploads\\audio\\011e7604-be55-455e-916a-c04b9ae0daec_012345.wav",
+      "SourceId": "ACM.Backend",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\professional\\SLIIT\\YEAR 3\\SEM 1\\SEF\\SEF PROJECT\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\",
+      "BasePath": "_content/ACM.Backend",
+      "RelativePath": "uploads/audio/011e7604-be55-455e-916a-c04b9ae0daec_012345.wav",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\uploads\\audio\\011e7604-be55-455e-916a-c04b9ae0daec_012345.wav"
+    },
+    {
+      "Identity": "C:\\professional\\SLIIT\\YEAR 3\\SEM 1\\SEF\\SEF PROJECT\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\uploads\\audio\\3048f2fc-6c84-4ec8-a93e-431b3d03985b_012345.wav",
+      "SourceId": "ACM.Backend",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\professional\\SLIIT\\YEAR 3\\SEM 1\\SEF\\SEF PROJECT\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\",
+      "BasePath": "_content/ACM.Backend",
+      "RelativePath": "uploads/audio/3048f2fc-6c84-4ec8-a93e-431b3d03985b_012345.wav",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\uploads\\audio\\3048f2fc-6c84-4ec8-a93e-431b3d03985b_012345.wav"
+    },
+    {
+      "Identity": "C:\\professional\\SLIIT\\YEAR 3\\SEM 1\\SEF\\SEF PROJECT\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\uploads\\audio\\7c0a43dc-1484-4324-b68e-8156ab22df9d_012345.wav",
+      "SourceId": "ACM.Backend",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\professional\\SLIIT\\YEAR 3\\SEM 1\\SEF\\SEF PROJECT\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\",
+      "BasePath": "_content/ACM.Backend",
+      "RelativePath": "uploads/audio/7c0a43dc-1484-4324-b68e-8156ab22df9d_012345.wav",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\uploads\\audio\\7c0a43dc-1484-4324-b68e-8156ab22df9d_012345.wav"
+    }
+  ]
 }

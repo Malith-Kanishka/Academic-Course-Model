@@ -109,3 +109,10 @@ C:\professional\SLIIT\YEAR 3\SEM 1\SEF\SEF PROJECT\Academic-Course-Model\tests\A
 C:\professional\SLIIT\YEAR 3\SEM 1\SEF\SEF PROJECT\Academic-Course-Model\tests\ACM.Tests.Unit\obj\Debug\net8.0\ACM.Tests.Unit.pdb
 C:\professional\SLIIT\YEAR 3\SEM 1\SEF\SEF PROJECT\Academic-Course-Model\tests\ACM.Tests.Unit\obj\Debug\net8.0\ACM.Tests.Unit.genruntimeconfig.cache
 C:\professional\SLIIT\YEAR 3\SEM 1\SEF\SEF PROJECT\Academic-Course-Model\tests\ACM.Tests.Unit\obj\Debug\net8.0\ref\ACM.Tests.Unit.dll
+C:\professional\SLIIT\YEAR 3\SEM 1\SEF\SEF PROJECT\Academic-Course-Model\tests\ACM.Tests.Unit\bin\Debug\net8.0\ACM.Backend.staticwebassets.runtime.json
+C:\professional\SLIIT\YEAR 3\SEM 1\SEF\SEF PROJECT\Academic-Course-Model\tests\ACM.Tests.Unit\bin\Debug\net8.0\Microsoft.AspNetCore.OpenApi.dll
+C:\professional\SLIIT\YEAR 3\SEM 1\SEF\SEF PROJECT\Academic-Course-Model\tests\ACM.Tests.Unit\bin\Debug\net8.0\Microsoft.EntityFrameworkCore.dll
+C:\professional\SLIIT\YEAR 3\SEM 1\SEF\SEF PROJECT\Academic-Course-Model\tests\ACM.Tests.Unit\bin\Debug\net8.0\Microsoft.EntityFrameworkCore.Abstractions.dll
+C:\professional\SLIIT\YEAR 3\SEM 1\SEF\SEF PROJECT\Academic-Course-Model\tests\ACM.Tests.Unit\bin\Debug\net8.0\Microsoft.EntityFrameworkCore.Relational.dll
+C:\professional\SLIIT\YEAR 3\SEM 1\SEF\SEF PROJECT\Academic-Course-Model\tests\ACM.Tests.Unit\bin\Debug\net8.0\Npgsql.dll
+C:\professional\SLIIT\YEAR 3\SEM 1\SEF\SEF PROJECT\Academic-Course-Model\tests\ACM.Tests.Unit\bin\Debug\net8.0\Npgsql.EntityFrameworkCore.PostgreSQL.dll
