@@ -5,39 +5,46 @@ using ACM.Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Add services to the container.
+// 1. Add API Controllers and Swagger documentation
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// 2. Configure Entity Framework Core with PostgreSQL (Supabase)
-// It grabs the string we just put in appsettings.json
+// 2. Enable CORS for React web app and Flutter mobile app
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
+// 3. Configure Entity Framework Core with PostgreSQL (Supabase)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<ACMDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// 3. Register your Member 3 Services (Dependency Injection)
-// This tells the API: "Whenever a controller asks for ISessionService, give them SessionService"
+// 4. Register Member 3 Services
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<ISessionService, SessionService>();
 
-// (Your teammates will add their services here later)
-// builder.Services.AddScoped<IUserService, UserService>();
+// 5. Register Member 4 Approval & Evaluation Service
+builder.Services.AddSingleton<IApprovalService, ApprovalService>();
 
 var app = builder.Build();
 
-// 4. Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// 6. Configure the HTTP request pipeline
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    // Swagger provides a nice UI to test your endpoints in the browser
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "ACM Backend API v1");
+    c.RoutePrefix = "swagger";
+});
 
-app.UseHttpsRedirection();
-
+app.UseCors("AllowAll");
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.Run();
