@@ -23,6 +23,9 @@ namespace ACM.Backend.Infrastructure.Data
         public DbSet<DialogueTurn> DialogueTurns { get; set; }
 
         // Note: The other members will add their DbSets here.
+        // Note: The other 3 members will add their DbSets here later.
+        // public DbSet<User> Users { get; set; } 
+        // public DbSet<Module> Modules { get; set; } 
         // public DbSet<MasteryReport> MasteryReports { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
