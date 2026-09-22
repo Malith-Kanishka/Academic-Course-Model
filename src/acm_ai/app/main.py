@@ -1,14 +1,50 @@
+"""
+FastAPI entrypoint for the Agentic AI subsystem.
+
+Internal microservice - called only by ASP.NET Core, never directly by
+Flutter/React. The eventual full endpoint per the spec is
+POST /api/internal/evaluate-session, running all 4 agents end-to-end; that
+lands once Members 2-4's agents exist. For now this exposes Member 1's two
+Coordinator operations standalone so the agent is testable/runnable today.
+"""
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any, Set
-from app.schemas.audit_schemas import FactAuditRequest, FactAuditResultDTO
+
+from app.agents.coordinator_agent import SessionCoordinatorAgent
 from app.agents.knowledge_auditor_agent import audit_student_claim
 from app.agents.socratic_adversary_agent import SocraticAdversary
+from app.graph.state import WorkflowState
+from app.schemas.audit_schemas import FactAuditRequest, FactAuditResultDTO
+from app.schemas.session_schemas import NextTurnDirectiveDTO, SessionAgendaDTO, SessionInitRequest
 
 app = FastAPI(title="ACM AI Microservice", version="1.0")
 
-# Initialize your AI Agent
+# Initialize the AI agents
+_coordinator = SessionCoordinatorAgent()
 socratic_agent = SocraticAdversary()
+
+
+@app.get("/health")
+def health() -> dict:
+    return {"status": "ok"}
+
+
+@app.post("/api/internal/coordinator/plan-session", response_model=SessionAgendaDTO)
+def plan_session(request: SessionInitRequest) -> SessionAgendaDTO:
+    try:
+        return _coordinator.create_session_agenda(request)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@app.post("/api/internal/coordinator/next-turn", response_model=NextTurnDirectiveDTO)
+def next_turn(state: WorkflowState) -> NextTurnDirectiveDTO:
+    try:
+        return _coordinator.decide_next_turn(state)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
 
 class AuditRequest(BaseModel):
     completed_topics: List[str]
@@ -42,7 +78,7 @@ class KnowledgeBaseInferenceEngine:
             for rule in self.rules:
                 premises = rule["premises"]
                 conclusion = rule["conclusion"]
-                
+
                 if all(p in inferred for p in premises) and conclusion not in inferred:
                     inferred.add(conclusion)
                     newly_inferred = True
@@ -57,16 +93,16 @@ async def root():
 async def audit_topic_endpoint(request: AuditRequest):
     try:
         engine = KnowledgeBaseInferenceEngine()
-        
+
         for fact in request.completed_topics:
             engine.add_fact(fact)
-            
+
         for rule in request.rules_db:
             engine.add_rule(rule.get("premises", []), rule.get("conclusion", ""))
-            
+
         derived_facts = engine.forward_chain()
         is_valid = request.target_topic in derived_facts
-        
+
         return {
             "target_topic": request.target_topic,
             "is_unlocked": is_valid,
@@ -96,12 +132,7 @@ async def process_dialogue(request: DialogueRequest):
     try:
         # Pass the text to your LangChain agent
         response_text = socratic_agent.generate_response(request.student_text)
-        
+
         return AIResponse(ai_text=response_text)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-# A simple health check endpoint so we know the server is running
-@app.get("/health")
-async def health_check():
-    return {"status": "AI Service is online and ready!"}

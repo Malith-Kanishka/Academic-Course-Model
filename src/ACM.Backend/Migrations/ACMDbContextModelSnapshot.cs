@@ -22,6 +22,72 @@ namespace ACM.Backend.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ACM.Backend.Core.Entities.AgentPersonality", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AdaptToPerformance")
+                        .HasColumnType("boolean");
+
+                    b.Property<double>("AverageScore")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("CommunicationStyle")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CustomInstructions")
+                        .HasColumnType("text");
+
+                    b.Property<int>("EnthusiasmLevel")
+                        .HasColumnType("integer");
+
+                    b.Property<string[]>("FocusAreas")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.Property<string>("LearningStyle")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("MaxRetryAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PatienceLevel")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PerformanceLevel")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PersonalityType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("ProvideEncouragement")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("StudentUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("UsePracticalExamples")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentUserId")
+                        .IsUnique();
+
+                    b.ToTable("AgentPersonalities");
+                });
+
             modelBuilder.Entity("ACM.Backend.Core.Entities.DialogueTurn", b =>
                 {
                     b.Property<Guid>("Id")
@@ -51,6 +117,103 @@ namespace ACM.Backend.Migrations
                     b.ToTable("DialogueTurns");
                 });
 
+            modelBuilder.Entity("ACM.Backend.Core.Entities.Module", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Modules");
+                });
+
+            modelBuilder.Entity("ACM.Backend.Core.Entities.RefreshToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DeviceInfo")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("IpAddress")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsRevoked")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("IssuedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Token")
+                        .IsUnique();
+
+                    b.ToTable("RefreshTokens");
+                });
+
+            modelBuilder.Entity("ACM.Backend.Core.Entities.StudyMaterial", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FilePathOrUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("MaterialType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("TopicId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TopicId");
+
+                    b.ToTable("StudyMaterials");
+                });
+
             modelBuilder.Entity("ACM.Backend.Core.Entities.StudySession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -77,6 +240,95 @@ namespace ACM.Backend.Migrations
                     b.ToTable("StudySessions");
                 });
 
+            modelBuilder.Entity("ACM.Backend.Core.Entities.Topic", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentDescription")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ModuleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("OrderIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ModuleId");
+
+                    b.ToTable("Topics");
+                });
+
+            modelBuilder.Entity("ACM.Backend.Core.Entities.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("ACM.Backend.Core.Entities.AgentPersonality", b =>
+                {
+                    b.HasOne("ACM.Backend.Core.Entities.User", "StudentUser")
+                        .WithOne("AgentPersonality")
+                        .HasForeignKey("ACM.Backend.Core.Entities.AgentPersonality", "StudentUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("StudentUser");
+                });
+
             modelBuilder.Entity("ACM.Backend.Core.Entities.DialogueTurn", b =>
                 {
                     b.HasOne("ACM.Backend.Core.Entities.StudySession", "Session")
@@ -88,9 +340,68 @@ namespace ACM.Backend.Migrations
                     b.Navigation("Session");
                 });
 
+            modelBuilder.Entity("ACM.Backend.Core.Entities.RefreshToken", b =>
+                {
+                    b.HasOne("ACM.Backend.Core.Entities.User", "User")
+                        .WithMany("RefreshTokens")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ACM.Backend.Core.Entities.StudyMaterial", b =>
+                {
+                    b.HasOne("ACM.Backend.Core.Entities.Topic", "Topic")
+                        .WithMany("StudyMaterials")
+                        .HasForeignKey("TopicId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Topic");
+                });
+
+            modelBuilder.Entity("ACM.Backend.Core.Entities.Topic", b =>
+                {
+                    b.HasOne("ACM.Backend.Core.Entities.Module", "Module")
+                        .WithMany("Topics")
+                        .HasForeignKey("ModuleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Module");
+                });
+
+            modelBuilder.Entity("ACM.Backend.Core.Entities.User", b =>
+                {
+                    b.HasOne("ACM.Backend.Core.Entities.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId");
+
+                    b.Navigation("CreatedByUser");
+                });
+
+            modelBuilder.Entity("ACM.Backend.Core.Entities.Module", b =>
+                {
+                    b.Navigation("Topics");
+                });
+
             modelBuilder.Entity("ACM.Backend.Core.Entities.StudySession", b =>
                 {
                     b.Navigation("DialogueTurns");
+                });
+
+            modelBuilder.Entity("ACM.Backend.Core.Entities.Topic", b =>
+                {
+                    b.Navigation("StudyMaterials");
+                });
+
+            modelBuilder.Entity("ACM.Backend.Core.Entities.User", b =>
+                {
+                    b.Navigation("AgentPersonality");
+
+                    b.Navigation("RefreshTokens");
                 });
 #pragma warning restore 612, 618
         }
