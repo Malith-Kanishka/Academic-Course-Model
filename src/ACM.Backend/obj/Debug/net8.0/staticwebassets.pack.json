@@ -1,36 +1,16 @@
 {
   "Files": [
     {
-      "Id": "C:\\Users\\Malith Kanishka\\Documents\\Projects\\Academic Course Model\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\uploads\\audio\\011e7604-be55-455e-916a-c04b9ae0daec_012345.wav",
+      "Id": "D:\\SEF_project\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\uploads\\audio\\011e7604-be55-455e-916a-c04b9ae0daec_012345.wav",
       "PackagePath": "staticwebassets\\uploads\\audio\\011e7604-be55-455e-916a-c04b9ae0daec_012345.wav"
     },
     {
-      "Id": "C:\\Users\\Malith Kanishka\\Documents\\Projects\\Academic Course Model\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\uploads\\audio\\171dfff3-d352-4dab-852b-7ab7eac57617_012345.wav",
-      "PackagePath": "staticwebassets\\uploads\\audio\\171dfff3-d352-4dab-852b-7ab7eac57617_012345.wav"
-    },
-    {
-      "Id": "C:\\Users\\Malith Kanishka\\Documents\\Projects\\Academic Course Model\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\uploads\\audio\\3048f2fc-6c84-4ec8-a93e-431b3d03985b_012345.wav",
+      "Id": "D:\\SEF_project\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\uploads\\audio\\3048f2fc-6c84-4ec8-a93e-431b3d03985b_012345.wav",
       "PackagePath": "staticwebassets\\uploads\\audio\\3048f2fc-6c84-4ec8-a93e-431b3d03985b_012345.wav"
     },
     {
-      "Id": "C:\\Users\\Malith Kanishka\\Documents\\Projects\\Academic Course Model\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\uploads\\audio\\5caebb90-b37d-454f-83f3-0bf575db5407_012345.wav",
-      "PackagePath": "staticwebassets\\uploads\\audio\\5caebb90-b37d-454f-83f3-0bf575db5407_012345.wav"
-    },
-    {
-      "Id": "C:\\Users\\Malith Kanishka\\Documents\\Projects\\Academic Course Model\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\uploads\\audio\\7c0a43dc-1484-4324-b68e-8156ab22df9d_012345.wav",
+      "Id": "D:\\SEF_project\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\uploads\\audio\\7c0a43dc-1484-4324-b68e-8156ab22df9d_012345.wav",
       "PackagePath": "staticwebassets\\uploads\\audio\\7c0a43dc-1484-4324-b68e-8156ab22df9d_012345.wav"
-    },
-    {
-      "Id": "C:\\Users\\Malith Kanishka\\Documents\\Projects\\Academic Course Model\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\uploads\\audio\\947fab54-2cfb-4c3e-b067-dd5d453f993f_012345.wav",
-      "PackagePath": "staticwebassets\\uploads\\audio\\947fab54-2cfb-4c3e-b067-dd5d453f993f_012345.wav"
-    },
-    {
-      "Id": "C:\\Users\\Malith Kanishka\\Documents\\Projects\\Academic Course Model\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\uploads\\audio\\9cfb07e2-5e57-469c-a8c7-7ec3740cff8f_012345.wav",
-      "PackagePath": "staticwebassets\\uploads\\audio\\9cfb07e2-5e57-469c-a8c7-7ec3740cff8f_012345.wav"
-    },
-    {
-      "Id": "C:\\Users\\Malith Kanishka\\Documents\\Projects\\Academic Course Model\\Academic-Course-Model\\src\\ACM.Backend\\wwwroot\\uploads\\audio\\dec08a1b-e8b6-4502-b263-23743db59cf2_012345.wav",
-      "PackagePath": "staticwebassets\\uploads\\audio\\dec08a1b-e8b6-4502-b263-23743db59cf2_012345.wav"
     },
     {
       "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.ACM.Backend.Microsoft.AspNetCore.StaticWebAssets.props",
