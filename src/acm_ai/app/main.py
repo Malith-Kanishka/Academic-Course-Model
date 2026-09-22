@@ -76,19 +76,7 @@ async def audit_topic_endpoint(request: AuditRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/ai/filter-neighbors")
-async def filter_neighbors_endpoint(request: AStarFilterRequest):
-    valid_neighbors = filter_astar_neighbors(
-        current_node=request.current_node,
-        potential_neighbors=request.potential_neighbors,
-        completed_topics=request.completed_topics,
-        rules_db=request.rules_db
-    )
-    return {
-        "current_node": request.current_node,
-        "valid_neighbors": valid_neighbors,
-        "count": len(valid_neighbors)
-    }
+
 
 @app.post("/api/ai/audit", response_model=FactAuditResultDTO)
 async def audit_endpoint(request: FactAuditRequest):

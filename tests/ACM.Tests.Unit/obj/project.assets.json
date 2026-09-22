@@ -6626,19 +6626,19 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Shehan Dissanayake\\.nuget\\packages\\": {}
+    "C:\\Users\\nisal\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\professional\\SLIIT\\YEAR 3\\SEM 1\\SEF\\SEF PROJECT\\Academic-Course-Model\\tests\\ACM.Tests.Unit\\ACM.Tests.Unit.csproj",
+      "projectUniqueName": "D:\\SEF_project\\Academic-Course-Model\\tests\\ACM.Tests.Unit\\ACM.Tests.Unit.csproj",
       "projectName": "ACM.Tests.Unit",
-      "projectPath": "C:\\professional\\SLIIT\\YEAR 3\\SEM 1\\SEF\\SEF PROJECT\\Academic-Course-Model\\tests\\ACM.Tests.Unit\\ACM.Tests.Unit.csproj",
-      "packagesPath": "C:\\Users\\Shehan Dissanayake\\.nuget\\packages\\",
-      "outputPath": "C:\\professional\\SLIIT\\YEAR 3\\SEM 1\\SEF\\SEF PROJECT\\Academic-Course-Model\\tests\\ACM.Tests.Unit\\obj\\",
+      "projectPath": "D:\\SEF_project\\Academic-Course-Model\\tests\\ACM.Tests.Unit\\ACM.Tests.Unit.csproj",
+      "packagesPath": "C:\\Users\\nisal\\.nuget\\packages\\",
+      "outputPath": "D:\\SEF_project\\Academic-Course-Model\\tests\\ACM.Tests.Unit\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "C:\\Users\\Shehan Dissanayake\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "C:\\Users\\nisal\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net8.0"
@@ -6650,8 +6650,8 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "C:\\professional\\SLIIT\\YEAR 3\\SEM 1\\SEF\\SEF PROJECT\\Academic-Course-Model\\src\\ACM.Backend\\ACM.Backend.csproj": {
-              "projectPath": "C:\\professional\\SLIIT\\YEAR 3\\SEM 1\\SEF\\SEF PROJECT\\Academic-Course-Model\\src\\ACM.Backend\\ACM.Backend.csproj"
+            "D:\\SEF_project\\Academic-Course-Model\\src\\ACM.Backend\\ACM.Backend.csproj": {
+              "projectPath": "D:\\SEF_project\\Academic-Course-Model\\src\\ACM.Backend\\ACM.Backend.csproj"
             }
           }
         }
