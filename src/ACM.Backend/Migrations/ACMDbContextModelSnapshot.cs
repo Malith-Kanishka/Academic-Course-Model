@@ -22,128 +22,75 @@ namespace ACM.Backend.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("ACM.Backend.Core.Entities.Module", b =>
+            modelBuilder.Entity("ACM.Backend.Core.Entities.DialogueTurn", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                    b.Property<string>("AudioFilePath")
+                        .HasColumnType("text");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
 
-                    b.Property<string>("Description")
+                    b.Property<int>("Speaker")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Text")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
-                    b.ToTable("Modules");
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("DialogueTurns");
                 });
 
-            modelBuilder.Entity("ACM.Backend.Core.Entities.StudyMaterial", b =>
+            modelBuilder.Entity("ACM.Backend.Core.Entities.StudySession", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("FilePathOrUrl")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<DateTime?>("EndTime")
+                        .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("MaterialType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                    b.Property<DateTime>("StartTime")
+                        .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("TopicId")
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("UploadedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("TopicId");
-
-                    b.ToTable("StudyMaterials");
+                    b.ToTable("StudySessions");
                 });
 
-            modelBuilder.Entity("ACM.Backend.Core.Entities.Topic", b =>
+            modelBuilder.Entity("ACM.Backend.Core.Entities.DialogueTurn", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ContentDescription")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("ModuleId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("OrderIndex")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ModuleId");
-
-                    b.ToTable("Topics");
-                });
-
-            modelBuilder.Entity("ACM.Backend.Core.Entities.StudyMaterial", b =>
-                {
-                    b.HasOne("ACM.Backend.Core.Entities.Topic", "Topic")
-                        .WithMany("StudyMaterials")
-                        .HasForeignKey("TopicId")
+                    b.HasOne("ACM.Backend.Core.Entities.StudySession", "Session")
+                        .WithMany("DialogueTurns")
+                        .HasForeignKey("SessionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Topic");
+                    b.Navigation("Session");
                 });
 
-            modelBuilder.Entity("ACM.Backend.Core.Entities.Topic", b =>
+            modelBuilder.Entity("ACM.Backend.Core.Entities.StudySession", b =>
                 {
-                    b.HasOne("ACM.Backend.Core.Entities.Module", "Module")
-                        .WithMany("Topics")
-                        .HasForeignKey("ModuleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Module");
-                });
-
-            modelBuilder.Entity("ACM.Backend.Core.Entities.Module", b =>
-                {
-                    b.Navigation("Topics");
-                });
-
-            modelBuilder.Entity("ACM.Backend.Core.Entities.Topic", b =>
-                {
-                    b.Navigation("StudyMaterials");
+                    b.Navigation("DialogueTurns");
                 });
 #pragma warning restore 612, 618
         }

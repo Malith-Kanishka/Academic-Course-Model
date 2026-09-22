@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ACM.Backend.Infrastructure.Data;
+using ACM.Backend.Core.Interfaces;
 using ACM.Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,8 +17,9 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<KnowledgeAuditorService>();
 
 // Register PostgreSQL Database Context
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<ACMDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString));
 
 builder.Services.AddHttpClient<KnowledgeAuditorService>(client =>
 {
@@ -28,7 +30,27 @@ builder.Services.AddHttpClient<KnowledgeAuditorService>(client =>
 // Register the Curriculum Service
 builder.Services.AddScoped<CurriculumService>();
 
+// Enable CORS for React web app and Flutter mobile app
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
+// Register Member 3 Services
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<ISessionService, SessionService>();
+
+// Register Member 4 Approval & Evaluation Service
+builder.Services.AddSingleton<IApprovalService, ApprovalService>();
+
 var app = builder.Build();
+
+app.UseCors("AllowAll");
 
 // Enable Swagger unconditionally for testing
 app.UseSwagger();
@@ -38,7 +60,7 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = string.Empty; // This makes Swagger open automatically at the root URL (http://localhost:xxxx/)!
 });
 
-// Configure the HTTP request pipeline
+app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
