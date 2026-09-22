@@ -5,12 +5,32 @@ using ACM.Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Add API Controllers and Swagger documentation
-builder.Services.AddControllers();
+// Add services to the container
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    });
+    
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddScoped<KnowledgeAuditorService>();
 
-// 2. Enable CORS for React web app and Flutter mobile app
+// Register PostgreSQL Database Context
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddDbContext<ACMDbContext>(options =>
+    options.UseNpgsql(connectionString));
+
+builder.Services.AddHttpClient<KnowledgeAuditorService>(client =>
+{
+    client.BaseAddress = new Uri("http://localhost:8000/"); // Python FastAPI server URL
+});
+
+
+// Register the Curriculum Service
+builder.Services.AddScoped<CurriculumService>();
+
+// Enable CORS for React web app and Flutter mobile app
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -21,29 +41,25 @@ builder.Services.AddCors(options =>
     });
 });
 
-// 3. Configure Entity Framework Core with PostgreSQL (Supabase)
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-builder.Services.AddDbContext<ACMDbContext>(options =>
-    options.UseNpgsql(connectionString));
-
-// 4. Register Member 3 Services
+// Register Member 3 Services
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<ISessionService, SessionService>();
 
-// 5. Register Member 4 Approval & Evaluation Service
+// Register Member 4 Approval & Evaluation Service
 builder.Services.AddSingleton<IApprovalService, ApprovalService>();
 
 var app = builder.Build();
 
-// 6. Configure the HTTP request pipeline
+app.UseCors("AllowAll");
+
+// Enable Swagger unconditionally for testing
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "ACM Backend API v1");
-    c.RoutePrefix = "swagger";
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "ACM Backend API V1");
+    c.RoutePrefix = string.Empty; // This makes Swagger open automatically at the root URL (http://localhost:xxxx/)!
 });
 
-app.UseCors("AllowAll");
 app.UseAuthorization();
 app.MapControllers();
 
