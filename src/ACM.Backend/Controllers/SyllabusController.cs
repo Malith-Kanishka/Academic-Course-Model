@@ -1,12 +1,14 @@
 using ACM.Backend.Core.DTOs;
 using ACM.Backend.Core.Entities;
 using ACM.Backend.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ACM.Backend.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class SyllabusController : ControllerBase
     {
         private readonly CurriculumService _curriculumService;
@@ -24,6 +26,7 @@ namespace ACM.Backend.Controllers
         }
 
         [HttpPost("modules")]
+        [Authorize(Roles = "Lecturer,DepartmentHead")]
         public async Task<ActionResult<Module>> CreateModule([FromBody] Module module)
         {
             if (module.Id == Guid.Empty)
@@ -37,6 +40,7 @@ namespace ACM.Backend.Controllers
         }
 
         [HttpPost("topics")]
+        [Authorize(Roles = "Lecturer,DepartmentHead")]
         public async Task<ActionResult<Topic>> CreateTopic([FromBody] TopicCreateDto dto)
         {
             try
@@ -68,6 +72,7 @@ namespace ACM.Backend.Controllers
         }
 
         [HttpPost("materials/upload")]
+        [Authorize(Roles = "Lecturer,DepartmentHead")]
         public async Task<ActionResult<StudyMaterial>> UploadMaterial([FromForm] MaterialUploadDto dto)
         {
             try
