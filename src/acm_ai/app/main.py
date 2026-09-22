@@ -3,9 +3,12 @@ from pydantic import BaseModel
 from typing import List, Dict, Any, Set
 from app.schemas.audit_schemas import FactAuditRequest, FactAuditResultDTO
 from app.agents.knowledge_auditor_agent import audit_student_claim
+from app.agents.socratic_adversary_agent import SocraticAdversary
 
+app = FastAPI(title="ACM AI Microservice", version="1.0")
 
-app = FastAPI(title="ACM AI Inference Engine (Member 2)")
+# Initialize your AI Agent
+socratic_agent = SocraticAdversary()
 
 class AuditRequest(BaseModel):
     completed_topics: List[str]
@@ -90,3 +93,27 @@ async def filter_neighbors_endpoint(request: AStarFilterRequest):
 @app.post("/api/ai/audit", response_model=FactAuditResultDTO)
 async def audit_endpoint(request: FactAuditRequest):
     return audit_student_claim(request)
+
+# Define the JSON structure we expect from the C# API
+class DialogueRequest(BaseModel):
+    session_id: str
+    student_text: str
+
+# Define the JSON structure we will send back to the C# API
+class AIResponse(BaseModel):
+    ai_text: str
+
+@app.post("/api/ai/process", response_model=AIResponse)
+async def process_dialogue(request: DialogueRequest):
+    try:
+        # Pass the text to your LangChain agent
+        response_text = socratic_agent.generate_response(request.student_text)
+        
+        return AIResponse(ai_text=response_text)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# A simple health check endpoint so we know the server is running
+@app.get("/health")
+async def health_check():
+    return {"status": "AI Service is online and ready!"}
