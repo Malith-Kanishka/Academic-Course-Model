@@ -129,7 +129,7 @@ namespace ACM.Backend.Services
             }
         }
 
-        public async Task<UserResponseDto> RegisterUserAsync(RegisterUserDto request, int? createdByUserId)
+        public async Task<UserResponseDto> RegisterUserAsync(RegisterUserDto request, Guid? createdByUserId)
         {
             try
             {
@@ -186,7 +186,7 @@ namespace ACM.Backend.Services
             }
         }
 
-        public async Task<UserResponseDto?> GetUserByIdAsync(int userId)
+        public async Task<UserResponseDto?> GetUserByIdAsync(Guid userId)
         {
             var user = await _context.Users.FindAsync(userId);
             return user == null ? null : MapToUserResponseDto(user);
@@ -210,7 +210,7 @@ namespace ACM.Backend.Services
             return users.Select(MapToUserResponseDto);
         }
 
-        public async Task<bool> UpdateUserAsync(int userId, string firstName, string lastName)
+        public async Task<bool> UpdateUserAsync(Guid userId, string firstName, string lastName)
         {
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return false;
@@ -226,7 +226,7 @@ namespace ACM.Backend.Services
             return true;
         }
 
-        public async Task<bool> DeactivateUserAsync(int userId)
+        public async Task<bool> DeactivateUserAsync(Guid userId)
         {
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return false;
@@ -241,7 +241,7 @@ namespace ACM.Backend.Services
             return true;
         }
 
-        public async Task<bool> ActivateUserAsync(int userId)
+        public async Task<bool> ActivateUserAsync(Guid userId)
         {
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return false;
@@ -256,7 +256,7 @@ namespace ACM.Backend.Services
             return true;
         }
 
-        public async Task<bool> ChangePasswordAsync(int userId, string currentPassword, string newPassword)
+        public async Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
         {
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return false;
@@ -277,7 +277,7 @@ namespace ACM.Backend.Services
             return true;
         }
 
-        public async Task<bool> RevokeRefreshTokenAsync(int userId, string token)
+        public async Task<bool> RevokeRefreshTokenAsync(Guid userId, string token)
         {
             var refreshToken = await _context.RefreshTokens
                 .FirstOrDefaultAsync(rt => rt.UserId == userId && rt.Token == token);

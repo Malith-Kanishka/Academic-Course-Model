@@ -85,7 +85,7 @@ namespace ACM.Backend.Services
             return await _userService.RegisterUserAsync(deptHeadDto, null);
         }
 
-        private async Task<UserResponseDto> SeedLecturerAsync(int createdByUserId)
+        private async Task<UserResponseDto> SeedLecturerAsync(Guid createdByUserId)
         {
             var lecturerDto = new RegisterUserDto
             {
@@ -99,7 +99,7 @@ namespace ACM.Backend.Services
             return await _userService.RegisterUserAsync(lecturerDto, createdByUserId);
         }
 
-        private async Task<UserResponseDto> SeedTeacherAsync(int createdByUserId)
+        private async Task<UserResponseDto> SeedTeacherAsync(Guid createdByUserId)
         {
             var teacherDto = new RegisterUserDto
             {
@@ -113,7 +113,7 @@ namespace ACM.Backend.Services
             return await _userService.RegisterUserAsync(teacherDto, createdByUserId);
         }
 
-        private async Task<UserResponseDto> SeedStudentAsync(string email, string firstName, string lastName, int createdByUserId)
+        private async Task<UserResponseDto> SeedStudentAsync(string email, string firstName, string lastName, Guid createdByUserId)
         {
             var studentDto = new RegisterUserDto
             {
@@ -129,6 +129,14 @@ namespace ACM.Backend.Services
 
         private async Task SeedTestModuleAsync()
         {
+            // Unlike SeedAsync's Users check, this has no gate of its own - guard here
+            // so re-seeding after unrelated resets (e.g. the Users table being cleared
+            // by an unrelated migration) doesn't insert a duplicate CS101 module.
+            if (await _context.Modules.AnyAsync(m => m.Code == "CS101"))
+            {
+                return;
+            }
+
             var module = new Module
             {
                 Id = Guid.NewGuid(),

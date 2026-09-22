@@ -7,16 +7,16 @@ namespace ACM.Backend.Core.Interfaces
     {
         Task<AuthResponseDto> AuthenticateAsync(AuthRequestDto request);
         Task<AuthResponseDto> RefreshTokenAsync(string refreshToken);
-        Task<UserResponseDto> RegisterUserAsync(RegisterUserDto request, int? createdByUserId);
-        Task<UserResponseDto?> GetUserByIdAsync(int userId);
+        Task<UserResponseDto> RegisterUserAsync(RegisterUserDto request, Guid? createdByUserId);
+        Task<UserResponseDto?> GetUserByIdAsync(Guid userId);
         Task<UserResponseDto?> GetUserByEmailAsync(string email);
         Task<IEnumerable<UserResponseDto>> GetAllUsersAsync();
         Task<IEnumerable<UserResponseDto>> GetUsersByRoleAsync(UserRole role);
-        Task<bool> UpdateUserAsync(int userId, string firstName, string lastName);
-        Task<bool> DeactivateUserAsync(int userId);
-        Task<bool> ActivateUserAsync(int userId);
-        Task<bool> ChangePasswordAsync(int userId, string currentPassword, string newPassword);
-        Task<bool> RevokeRefreshTokenAsync(int userId, string token);
+        Task<bool> UpdateUserAsync(Guid userId, string firstName, string lastName);
+        Task<bool> DeactivateUserAsync(Guid userId);
+        Task<bool> ActivateUserAsync(Guid userId);
+        Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword);
+        Task<bool> RevokeRefreshTokenAsync(Guid userId, string token);
         Task<bool> ValidatePasswordAsync(string plainPassword, string passwordHash);
     }
 }

@@ -133,7 +133,7 @@ namespace ACM.Backend.Controllers
 
             // Get current user ID from claims
             var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
-            if (!int.TryParse(userIdClaim?.Value, out int createdByUserId))
+            if (!Guid.TryParse(userIdClaim?.Value, out Guid createdByUserId))
                 return Unauthorized("User ID not found in token");
 
             // Verify that the current user is DepartmentHead
@@ -172,10 +172,10 @@ namespace ACM.Backend.Controllers
         [ProducesResponseType(typeof(UserResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult<UserResponseDto>> GetUserById(int id)
+        public async Task<ActionResult<UserResponseDto>> GetUserById(Guid id)
         {
             var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
-            if (!int.TryParse(userIdClaim?.Value, out int currentUserId))
+            if (!Guid.TryParse(userIdClaim?.Value, out Guid currentUserId))
                 return Unauthorized();
 
             if (currentUserId != id && !User.IsInRole(UserRole.DepartmentHead.ToString()))
@@ -305,7 +305,7 @@ namespace ACM.Backend.Controllers
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserDto request)
+        public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserDto request)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -313,7 +313,7 @@ namespace ACM.Backend.Controllers
             // Check authorization: user can update own profile or DepartmentHead can update anyone
             var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
 
-            if (!int.TryParse(userIdClaim?.Value, out int currentUserId))
+            if (!Guid.TryParse(userIdClaim?.Value, out Guid currentUserId))
                 return Unauthorized();
 
             if (currentUserId != id && !User.IsInRole(UserRole.DepartmentHead.ToString()))
@@ -353,13 +353,13 @@ namespace ACM.Backend.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        public async Task<IActionResult> ChangePassword(int id, [FromBody] ChangePasswordDto request)
+        public async Task<IActionResult> ChangePassword(Guid id, [FromBody] ChangePasswordDto request)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
             var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
-            if (!int.TryParse(userIdClaim?.Value, out int currentUserId) || currentUserId != id)
+            if (!Guid.TryParse(userIdClaim?.Value, out Guid currentUserId) || currentUserId != id)
                 return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only change your own password" });
 
             var success = await _userService.ChangePasswordAsync(id, request.CurrentPassword, request.NewPassword);
@@ -391,7 +391,7 @@ namespace ACM.Backend.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        public async Task<IActionResult> DeactivateUser(int id)
+        public async Task<IActionResult> DeactivateUser(Guid id)
         {
             var success = await _userService.DeactivateUserAsync(id);
             if (!success)
@@ -422,7 +422,7 @@ namespace ACM.Backend.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        public async Task<IActionResult> ActivateUser(int id)
+        public async Task<IActionResult> ActivateUser(Guid id)
         {
             var success = await _userService.ActivateUserAsync(id);
             if (!success)
@@ -455,7 +455,7 @@ namespace ACM.Backend.Controllers
         public async Task<IActionResult> Logout([FromBody] LogoutRequestDto request)
         {
             var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
-            if (!int.TryParse(userIdClaim?.Value, out int userId))
+            if (!Guid.TryParse(userIdClaim?.Value, out Guid userId))
                 return Unauthorized();
 
             await _userService.RevokeRefreshTokenAsync(userId, request.RefreshToken);

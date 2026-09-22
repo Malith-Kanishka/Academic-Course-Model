@@ -4,8 +4,8 @@ namespace ACM.Backend.Core.Entities
 {
     public class AgentPersonality
     {
-        public int Id { get; set; }
-        public int StudentUserId { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid StudentUserId { get; set; }
         public User StudentUser { get; set; } = null!;
 
         // Personality traits and configuration

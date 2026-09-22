@@ -5,7 +5,7 @@ namespace ACM.Backend.Core.Entities
 {
     public class User
     {
-        public int Id { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
         public string Email { get; set; } = null!;
         public string FirstName { get; set; } = null!;
         public string LastName { get; set; } = null!;
@@ -14,7 +14,7 @@ namespace ACM.Backend.Core.Entities
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
-        public int? CreatedByUserId { get; set; }
+        public Guid? CreatedByUserId { get; set; }
         public User? CreatedByUser { get; set; }
 
         // Navigation: Agent Personality Profile (for Students)
