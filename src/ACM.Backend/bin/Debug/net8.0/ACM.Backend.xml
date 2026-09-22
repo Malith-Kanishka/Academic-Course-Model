@@ -1,0 +1,340 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>ACM.Backend</name>
+    </assembly>
+    <members>
+        <member name="M:ACM.Backend.Controllers.ApprovalController.EvaluateSession(ACM.Backend.Core.DTOs.Member4.SessionFinalTranscriptDTO)">
+            <summary>
+            Processes final session metrics and calculates mastery score / HITL approval state.
+            Called by Session completion or Python Agent Subsystem.
+            </summary>
+        </member>
+        <member name="M:ACM.Backend.Controllers.ApprovalController.GetPendingApprovals">
+            <summary>
+            Gets all pending remedial plans requiring Professor sign-off.
+            Used by Member 4's React Professor Approval Inbox.
+            </summary>
+        </member>
+        <member name="M:ACM.Backend.Controllers.ApprovalController.SubmitDecision(ACM.Backend.Core.DTOs.Member4.ApprovalDecisionDto)">
+            <summary>
+            Professor submits approval decision (Approve or Reject with feedback).
+            Used by Member 4's React Professor Inbox action buttons.
+            </summary>
+        </member>
+        <member name="T:ACM.Backend.Controllers.AuthController">
+            <summary>
+            Authentication and User Management Controller
+            Handles user authentication, registration, profile management, and account control
+            </summary>
+        </member>
+        <member name="M:ACM.Backend.Controllers.AuthController.Login(ACM.Backend.Core.DTOs.Member1.AuthRequestDto)">
+             <summary>
+             User Login - Authenticate with email and password
+             </summary>
+             <remarks>
+             Authenticates a user with their email and password.
+             Returns access token (10 min expiry) and refresh token (7 day expiry).
+             No authorization required.
+            
+             Sample request:
+                 POST /api/auth/login
+                 {
+                     "email": "user@acm.edu",
+                     "password": "Password123!"
+                 }
+             </remarks>
+             <param name="request">Login credentials (email and password)</param>
+             <returns>AuthResponse with tokens and user info if successful, error message if failed</returns>
+             <response code="200">Authentication successful, returns access token and refresh token</response>
+             <response code="401">Invalid email or password</response>
+             <response code="400">Bad request - missing or invalid data</response>
+        </member>
+        <member name="M:ACM.Backend.Controllers.AuthController.RefreshToken(ACM.Backend.Controllers.RefreshTokenRequestDto)">
+             <summary>
+             Refresh Access Token - Get new access token using refresh token
+             </summary>
+             <remarks>
+             Issues a new access token using a valid refresh token.
+             Implements token rotation - old refresh token is revoked and new one is issued.
+             No authorization required.
+            
+             Sample request:
+                 POST /api/auth/refresh
+                 {
+                     "refreshToken": "base64encodedtoken..."
+                 }
+             </remarks>
+             <param name="request">Contains valid refresh token</param>
+             <returns>New access token and refresh token</returns>
+             <response code="200">Token refreshed successfully</response>
+             <response code="401">Invalid or expired refresh token</response>
+        </member>
+        <member name="M:ACM.Backend.Controllers.AuthController.Register(ACM.Backend.Core.DTOs.Member1.RegisterUserDto)">
+             <summary>
+             Register New User - Create a new user account
+             </summary>
+             <remarks>
+             Creates a new user account with specified role.
+             Only DepartmentHead users can register new users.
+             If role is Student, an AgentPersonality profile is automatically created.
+             Requires valid JWT access token.
+            
+             Sample request:
+                 POST /api/auth/register
+                 {
+                     "email": "newuser@acm.edu",
+                     "firstName": "John",
+                     "lastName": "Doe",
+                     "password": "Password123!",
+                     "role": "Student"
+                 }
+             </remarks>
+             <param name="request">User registration details</param>
+             <returns>Created user object</returns>
+             <response code="201">User created successfully</response>
+             <response code="400">Invalid input or email already exists</response>
+             <response code="403">Only DepartmentHead can register users</response>
+             <response code="401">Unauthorized - invalid or missing token</response>
+        </member>
+        <member name="M:ACM.Backend.Controllers.AuthController.GetUserById(System.Guid)">
+             <summary>
+             Get User by ID - Retrieve user details by ID
+             </summary>
+             <remarks>
+             Retrieves full user information including email, name, role, and status.
+             Users can only retrieve their own record; DepartmentHead can retrieve anyone's.
+            
+             Sample request:
+                 GET /api/auth/1
+             </remarks>
+             <param name="id">User ID</param>
+             <returns>User details object</returns>
+             <response code="200">User found and returned</response>
+             <response code="404">User not found</response>
+             <response code="403">Forbidden - can only view your own record</response>
+             <response code="401">Unauthorized - invalid or missing token</response>
+        </member>
+        <member name="M:ACM.Backend.Controllers.AuthController.GetUserByEmail(System.String)">
+             <summary>
+             Get User by Email - Search user by email address
+             </summary>
+             <remarks>
+             Searches for a user by their email address.
+             Users can only look up their own record by email; DepartmentHead can look up anyone.
+            
+             Sample request:
+                 GET /api/auth/email/user@acm.edu
+             </remarks>
+             <param name="email">User email address</param>
+             <returns>User details if found</returns>
+             <response code="200">User found and returned</response>
+             <response code="404">User with email not found</response>
+             <response code="403">Forbidden - can only view your own record</response>
+             <response code="401">Unauthorized - invalid or missing token</response>
+        </member>
+        <member name="M:ACM.Backend.Controllers.AuthController.GetAllUsers">
+             <summary>
+             Get All Users - List all users in the system
+             </summary>
+             <remarks>
+             Returns a list of all users in the system.
+             Only accessible to DepartmentHead (system administrators).
+            
+             Sample request:
+                 GET /api/auth
+             </remarks>
+             <returns>List of all users</returns>
+             <response code="200">Returns list of all users</response>
+             <response code="403">User does not have DepartmentHead role</response>
+             <response code="401">Unauthorized - invalid or missing token</response>
+        </member>
+        <member name="M:ACM.Backend.Controllers.AuthController.GetUsersByRole(System.String)">
+             <summary>
+             Get Users by Role - Filter users by their role
+             </summary>
+             <remarks>
+             Returns all users with a specific role.
+             Only accessible to DepartmentHead.
+             Valid roles: DepartmentHead, Lecturer, Teacher, Student
+            
+             Sample request:
+                 GET /api/auth/role/Student
+             </remarks>
+             <param name="role">User role to filter by (DepartmentHead, Lecturer, Teacher, Student)</param>
+             <returns>List of users with specified role</returns>
+             <response code="200">Returns filtered list of users</response>
+             <response code="400">Invalid role specified</response>
+             <response code="403">User does not have DepartmentHead role</response>
+             <response code="401">Unauthorized - invalid or missing token</response>
+        </member>
+        <member name="M:ACM.Backend.Controllers.AuthController.UpdateUser(System.Guid,ACM.Backend.Controllers.UpdateUserDto)">
+             <summary>
+             Update User Profile - Modify user's first and last name
+             </summary>
+             <remarks>
+             Updates a user's first and last name.
+             Users can only update their own profile, except DepartmentHead can update any user.
+            
+             Sample request:
+                 PUT /api/auth/1
+                 {
+                     "firstName": "Jonathan",
+                     "lastName": "Smith"
+                 }
+             </remarks>
+             <param name="id">User ID to update</param>
+             <param name="request">Updated first and last name</param>
+             <returns>No content</returns>
+             <response code="204">User updated successfully</response>
+             <response code="404">User not found</response>
+             <response code="403">Forbidden - can only update own profile</response>
+             <response code="401">Unauthorized - invalid or missing token</response>
+        </member>
+        <member name="M:ACM.Backend.Controllers.AuthController.ChangePassword(System.Guid,ACM.Backend.Controllers.ChangePasswordDto)">
+             <summary>
+             Change Password - Update user's password
+             </summary>
+             <remarks>
+             Allows a user to change their password.
+             Users can only change their own password.
+             Requires current password for verification.
+            
+             Sample request:
+                 POST /api/auth/1/change-password
+                 {
+                     "currentPassword": "OldPass123!",
+                     "newPassword": "NewPass456!"
+                 }
+             </remarks>
+             <param name="id">User ID</param>
+             <param name="request">Current and new password</param>
+             <returns>Success message</returns>
+             <response code="200">Password changed successfully</response>
+             <response code="400">Current password is incorrect</response>
+             <response code="403">Forbidden - can only change own password</response>
+             <response code="401">Unauthorized - invalid or missing token</response>
+        </member>
+        <member name="M:ACM.Backend.Controllers.AuthController.DeactivateUser(System.Guid)">
+             <summary>
+             Deactivate User - Disable user account
+             </summary>
+             <remarks>
+             Deactivates a user account (soft delete).
+             Deactivated users cannot login but their data is preserved.
+             Only DepartmentHead can deactivate users.
+            
+             Sample request:
+                 POST /api/auth/1/deactivate
+             </remarks>
+             <param name="id">User ID to deactivate</param>
+             <returns>Success message</returns>
+             <response code="200">User deactivated successfully</response>
+             <response code="404">User not found</response>
+             <response code="403">User does not have DepartmentHead role</response>
+             <response code="401">Unauthorized - invalid or missing token</response>
+        </member>
+        <member name="M:ACM.Backend.Controllers.AuthController.ActivateUser(System.Guid)">
+             <summary>
+             Activate User - Enable deactivated user account
+             </summary>
+             <remarks>
+             Reactivates a previously deactivated user account.
+             Activated users can login again.
+             Only DepartmentHead can activate users.
+            
+             Sample request:
+                 POST /api/auth/1/activate
+             </remarks>
+             <param name="id">User ID to activate</param>
+             <returns>Success message</returns>
+             <response code="200">User activated successfully</response>
+             <response code="404">User not found</response>
+             <response code="403">User does not have DepartmentHead role</response>
+             <response code="401">Unauthorized - invalid or missing token</response>
+        </member>
+        <member name="M:ACM.Backend.Controllers.AuthController.Logout(ACM.Backend.Controllers.LogoutRequestDto)">
+             <summary>
+             Logout - Revoke refresh token and logout user
+             </summary>
+             <remarks>
+             Logs out a user by revoking their refresh token.
+             After logout, refresh token cannot be used to get new access tokens.
+             Users must login again to get new tokens.
+            
+             Sample request:
+                 POST /api/auth/logout
+                 {
+                     "refreshToken": "base64token..."
+                 }
+             </remarks>
+             <param name="request">Contains refresh token to revoke</param>
+             <returns>Success message</returns>
+             <response code="200">Logged out successfully</response>
+             <response code="401">Unauthorized - invalid or missing token</response>
+        </member>
+        <member name="T:ACM.Backend.Migrations.InitialMember3Tables">
+            <inheritdoc />
+        </member>
+        <member name="M:ACM.Backend.Migrations.InitialMember3Tables.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:ACM.Backend.Migrations.InitialMember3Tables.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:ACM.Backend.Migrations.InitialMember3Tables.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:ACM.Backend.Migrations.AddSyllabusAndTopicEngine">
+            <inheritdoc />
+        </member>
+        <member name="M:ACM.Backend.Migrations.AddSyllabusAndTopicEngine.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:ACM.Backend.Migrations.AddSyllabusAndTopicEngine.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:ACM.Backend.Migrations.AddSyllabusAndTopicEngine.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:ACM.Backend.Migrations.AddMember1Authentication">
+            <inheritdoc />
+        </member>
+        <member name="M:ACM.Backend.Migrations.AddMember1Authentication.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:ACM.Backend.Migrations.AddMember1Authentication.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:ACM.Backend.Migrations.AddMember1Authentication.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:ACM.Backend.Migrations.ConvertUsersToUuid">
+            <inheritdoc />
+        </member>
+        <member name="M:ACM.Backend.Migrations.ConvertUsersToUuid.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:ACM.Backend.Migrations.ConvertUsersToUuid.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:ACM.Backend.Migrations.ConvertUsersToUuid.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:ACM.Backend.Services.DatabaseSeeder.SeedAsync">
+            <summary>
+            Seeds the database with initial test data
+            </summary>
+        </member>
+        <member name="T:ACM.Backend.Services.DatabaseSeederExtensions">
+            <summary>
+            Extension methods for database seeding
+            </summary>
+        </member>
+        <member name="M:ACM.Backend.Services.DatabaseSeederExtensions.SeedDatabaseAsync(Microsoft.AspNetCore.Builder.WebApplication)">
+            <summary>
+            Seeds the database with initial test data
+            </summary>
+        </member>
+    </members>
+</doc>
