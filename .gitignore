@@ -1,0 +1,39 @@
+# ===== .NET (src/ACM.Backend) =====
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# ===== Node / React (src/acm-web) =====
+node_modules/
+dist/
+build/
+.env
+.env.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===== Python (src/acm_ai) =====
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# ===== Flutter / Dart (src/acm_mobile) =====
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+*.g.dart
+android/local.properties
+ios/Flutter/Flutter.podspec
+
+# ===== OS / Editor =====
+.DS_Store
+Thumbs.db
+*.swp
