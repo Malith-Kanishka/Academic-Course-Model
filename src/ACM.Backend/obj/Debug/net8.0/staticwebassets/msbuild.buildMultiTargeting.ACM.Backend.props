@@ -1,3 +1,0 @@
-﻿<Project>
-  <Import Project="..\build\ACM.Backend.props" />
-</Project>

@@ -44,10 +44,6 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-    });
-    
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<KnowledgeAuditorService>();
 
 // Register PostgreSQL Database Context
@@ -136,8 +132,5 @@ app.MapControllers();
 
 // Member 1 - Seed Database with Test Data
 await app.SeedDatabaseAsync();
-
-app.UseAuthorization();
-app.MapControllers();
 
 app.Run();

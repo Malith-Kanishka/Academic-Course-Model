@@ -14,7 +14,7 @@ namespace ACM.Backend.Services
         private readonly string _jwtSecret;
         private readonly string _jwtIssuer;
         private readonly string _jwtAudience;
-        private readonly int _accessTokenExpirationMinutes = 10;
+        private readonly int _accessTokenExpirationMinutes;
         private readonly int _refreshTokenExpirationDays = 7;
 
         public JwtTokenGenerator(IConfiguration configuration)
@@ -23,6 +23,7 @@ namespace ACM.Backend.Services
             _jwtSecret = configuration["Jwt:Secret"] ?? throw new InvalidOperationException("JWT Secret not configured");
             _jwtIssuer = configuration["Jwt:Issuer"] ?? "ACM.Backend";
             _jwtAudience = configuration["Jwt:Audience"] ?? "ACM.Users";
+            _accessTokenExpirationMinutes = configuration.GetValue<int?>("Jwt:ExpirationMinutes") ?? 10;
         }
 
         public string GenerateAccessToken(User user)

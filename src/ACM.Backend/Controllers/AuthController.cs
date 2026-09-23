@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using ACM.Backend.Core.DTOs.Member1;
 using ACM.Backend.Core.Entities;
 using ACM.Backend.Core.Interfaces;
@@ -362,9 +363,16 @@ namespace ACM.Backend.Controllers
             if (!Guid.TryParse(userIdClaim?.Value, out Guid currentUserId) || currentUserId != id)
                 return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only change your own password" });
 
-            var success = await _userService.ChangePasswordAsync(id, request.CurrentPassword, request.NewPassword);
-            if (!success)
-                return BadRequest("Current password is incorrect");
+            try
+            {
+                var success = await _userService.ChangePasswordAsync(id, request.CurrentPassword, request.NewPassword);
+                if (!success)
+                    return BadRequest("Current password is incorrect");
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
 
             return Ok(new { message = "Password changed successfully" });
         }
@@ -477,7 +485,14 @@ namespace ACM.Backend.Controllers
 
     public class ChangePasswordDto
     {
+        [Required]
         public string CurrentPassword { get; set; } = null!;
+
+        [Required(ErrorMessage = "New password is required")]
+        [MinLength(8, ErrorMessage = "Password must be at least 8 characters long")]
+        [RegularExpression(
+            @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).+$",
+            ErrorMessage = "Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character")]
         public string NewPassword { get; set; } = null!;
     }
 
