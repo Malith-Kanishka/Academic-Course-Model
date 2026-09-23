@@ -1,70 +1,65 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import apiClient from '../../../services/apiClient';
+import { useAuthStore } from '../../../store/authStore';
 
 export default function useAuth({ loadUsers = false } = {}) {
-	const [users, setUsers] = useState([]);
-	const [isLoading, setIsLoading] = useState(loadUsers);
-	const [error, setError] = useState('');
+  const [users, setUsers] = useState([]);
+  const [isLoading, setIsLoading] = useState(loadUsers);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+  const setAuth = useAuthStore((state) => state.setAuth);
 
-	const fetchUsers = useCallback(async () => {
-		setIsLoading(true);
-		setError('');
+  const login = useCallback(async (email, password) => {
+    setIsLoading(true);
+    setError('');
 
-		try {
-			const response = await apiClient.get('/auth');
-			setUsers(response.data);
-			return response.data;
-		} catch (requestError) {
-			setError(requestError.response?.data?.message || 'Unable to load users.');
-			throw requestError;
-		} finally {
-			setIsLoading(false);
-		}
-	}, []);
+    try {
+      const response = await apiClient.post('/auth/login', { email, password });
+      const token = response.data?.accessToken ?? response.data?.token ?? null;
+      const user = response.data?.user ?? response.data ?? null;
 
-	const setUserStatus = useCallback(async (id, isActive) => {
-		await apiClient.post(`/auth/${id}/${isActive ? 'activate' : 'deactivate'}`);
-		setUsers((currentUsers) => currentUsers.map((user) => (
-			user.id === id ? { ...user, isActive } : user
-		)));
-	}, []);
+      console.log('[Auth Debug] raw login response', response?.data);
+      console.log('[Auth Debug] user payload', user);
+      console.log('[Auth Debug] token payload', token);
 
-	const updateProfile = useCallback(async (id, profile) => {
-		await apiClient.put(`/auth/${id}`, profile);
-		setUsers((currentUsers) => currentUsers.map((user) => (
-			user.id === id ? { ...user, ...profile } : user
-		)));
-	}, []);
+      if (!token) {
+        throw new Error('Token not returned by API');
+      }
 
-	useEffect(() => {
-		if (!loadUsers) return undefined;
+      setAuth(user, token);
 
-		let isMounted = true;
-		apiClient.get('/auth')
-			.then((response) => {
-				if (isMounted) setUsers(response.data);
-			})
-			.catch((requestError) => {
-				if (isMounted) {
-					setError(requestError.response?.data?.message || 'Unable to load users.');
-				}
-			})
-			.finally(() => {
-				if (isMounted) setIsLoading(false);
-			});
+      const role = user?.role ?? user?.Role ?? null;
+      const normalizedRole = String(role ?? '').toLowerCase();
+      const isDepartmentHead =
+        role === 0 ||
+        normalizedRole === '0' ||
+        normalizedRole === 'departmenthead';
 
-		return () => {
-			isMounted = false;
-		};
-	}, [loadUsers]);
+      const targetPath = isDepartmentHead ? '/admin/users' : '/curriculum';
 
-	return {
-		users,
-		isLoading,
-		error,
-		fetchUsers,
-		deactivateUser: (id) => setUserStatus(id, false),
-		activateUser: (id) => setUserStatus(id, true),
-		updateProfile,
-	};
+      console.log('[Auth Debug] resolved role', role);
+      console.log('[Auth Debug] target path', targetPath);
+
+      navigate(targetPath, { replace: true });
+      return response.data;
+    } catch (requestError) {
+      console.error('[Auth Debug] login failed', requestError);
+      const msg =
+        requestError?.response?.data?.message ||
+        requestError?.message ||
+        'Login failed. Please check credentials.';
+      setError(msg);
+      throw requestError;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [navigate, setAuth]);
+
+  return {
+    users,
+    isLoading,
+    error,
+    login,
+  };
 }
