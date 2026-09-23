@@ -45,7 +45,6 @@ def next_turn(state: WorkflowState) -> NextTurnDirectiveDTO:
     except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
-
 class AuditRequest(BaseModel):
     completed_topics: List[str]
     target_topic: str
@@ -79,6 +78,7 @@ class KnowledgeBaseInferenceEngine:
                 premises = rule["premises"]
                 conclusion = rule["conclusion"]
 
+
                 if all(p in inferred for p in premises) and conclusion not in inferred:
                     inferred.add(conclusion)
                     newly_inferred = True
@@ -102,6 +102,7 @@ async def audit_topic_endpoint(request: AuditRequest):
 
         derived_facts = engine.forward_chain()
         is_valid = request.target_topic in derived_facts
+
 
         return {
             "target_topic": request.target_topic,
@@ -136,3 +137,4 @@ async def process_dialogue(request: DialogueRequest):
         return AIResponse(ai_text=response_text)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+

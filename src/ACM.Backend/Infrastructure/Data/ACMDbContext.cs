@@ -65,7 +65,6 @@ namespace ACM.Backend.Infrastructure.Data
             // AgentPersonality entity configuration
             modelBuilder.Entity<AgentPersonality>()
                 .HasKey(ap => ap.Id);
-
             // Configure the relationship between Session and DialogueTurns
             // If a session is deleted, delete all its dialogue turns (Cascade)
             modelBuilder.Entity<StudySession>()

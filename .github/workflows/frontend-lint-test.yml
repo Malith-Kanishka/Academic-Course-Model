@@ -1,0 +1,11 @@
+name: Frontend Lint & Test
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Frontend workflow coming soon"
