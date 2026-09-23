@@ -43,11 +43,6 @@ builder.Services.AddSwaggerGen(c =>
         [new OpenApiSecuritySchemeReference("bearer", document)] = []
     });
 });
-
-    });
-    
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<KnowledgeAuditorService>();
 
 // Register PostgreSQL Database Context
@@ -89,7 +84,6 @@ builder.Services.AddAuthentication(options =>
 // Member 1 - Register User Services
 builder.Services.AddScoped<JwtTokenGenerator>();
 builder.Services.AddScoped<IUserService, UserService>();
-
 builder.Services.AddHttpClient<KnowledgeAuditorService>(client =>
 {
     client.BaseAddress = new Uri("http://localhost:8000/"); // Python FastAPI server URL
@@ -136,8 +130,5 @@ app.MapControllers();
 
 // Member 1 - Seed Database with Test Data
 await app.SeedDatabaseAsync();
-
-app.UseAuthorization();
-app.MapControllers();
 
 app.Run();
