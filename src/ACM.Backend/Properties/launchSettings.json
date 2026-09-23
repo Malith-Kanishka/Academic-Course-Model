@@ -1,12 +1,14 @@
 {
+  "$schema": "http://json.schemastore.org/launchsettings.json",
   "profiles": {
-    "ACM.Backend": {
+    "http": {
       "commandName": "Project",
-      "launchBrowser": true,
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5000",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
-      },
-      "applicationUrl": "https://localhost:50616;http://localhost:50617"
+      }
     }
   }
 }
