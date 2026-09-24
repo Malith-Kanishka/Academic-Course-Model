@@ -1,13 +1,13 @@
-import { BookOpen, BriefcaseBusiness, CheckCheck, LayoutDashboard, LogOut, ShieldCheck, Users } from 'lucide-react';
+import { BookOpen, BriefcaseBusiness, CheckCheck, ChevronRight, LayoutDashboard, LogOut, Users } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 
 const links = [
-  { name: 'Dashboard', path: '/curriculum', icon: LayoutDashboard },
-  { name: 'User Management', path: '/admin/users', icon: Users },
+  { name: 'Overview', path: '/curriculum', icon: LayoutDashboard },
+  { name: 'User directory', path: '/admin/users', icon: Users },
   { name: 'Curriculum', path: '/curriculum', icon: BookOpen },
-  { name: 'Approvals', path: '/approvals', icon: CheckCheck },
-  { name: 'Sessions', path: '/sessions', icon: BriefcaseBusiness },
+  { name: 'Approvals', path: '/approvals', icon: CheckCheck, badge: '3' },
+  { name: 'Session monitor', path: '/sessions', icon: BriefcaseBusiness },
 ];
 
 export default function Sidebar() {
@@ -16,46 +16,44 @@ export default function Sidebar() {
   const roleLabel = String(role).replace(/([A-Z])/g, ' $1').trim() || 'Student';
 
   return (
-    <aside className="flex h-screen w-72 shrink-0 flex-col border-r border-slate-200 bg-slate-950 text-slate-100">
-      <div className="flex items-center gap-3 border-b border-slate-800 px-6 py-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-base font-black text-white shadow-lg shadow-blue-500/30">
-          A
-        </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">ACM</p>
-          <p className="text-base font-bold text-white">Portal</p>
+    <aside className="flex h-screen w-72 shrink-0 flex-col border-r border-slate-200/80 bg-white/80 text-slate-700 backdrop-blur-xl">
+      <div className="border-b border-slate-200/80 px-5 py-5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500 text-base font-black text-white shadow-lg shadow-indigo-500/30">A</div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-indigo-600">ACM / 04</p>
+            <p className="text-base font-bold text-slate-900">Academic intelligence</p>
+          </div>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-2 p-4">
+      <div className="px-5 pt-6"><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Workspace</p></div>
+      <nav className="flex-1 space-y-1 px-3 py-3">
         {links.map(({ name, path, icon: Icon }) => (
           <NavLink
             key={name}
             to={path}
             className={({ isActive }) =>
-              `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+              `group flex items-center gap-3 rounded-xl border px-3 py-3 text-sm font-medium transition ${
                 isActive
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  ? 'border-l-4 border-blue-600 border-y-transparent border-r-transparent bg-blue-50 text-blue-600 font-semibold'
+                  : 'border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900'
               }`
             }
           >
-            <Icon className="h-4 w-4" />
-            {name}
+            <Icon className="h-4 w-4 shrink-0" />
+            <span className="flex-1">{name}</span>
+            {name === 'Approvals' && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">3</span>}
+            <ChevronRight className="h-3.5 w-3.5 opacity-0 transition group-hover:opacity-100" />
           </NavLink>
         ))}
       </nav>
 
-      <div className="border-t border-slate-800 p-4">
-        <div className="rounded-2xl bg-slate-900 p-3 ring-1 ring-slate-800">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Account</p>
-              <p className="mt-1 truncate text-sm font-semibold text-white">{user?.email || 'user@acm.edu'}</p>
-            </div>
-            <span className="inline-flex rounded-full bg-indigo-500/15 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-indigo-200">
-              {roleLabel}
-            </span>
+      <div className="border-t border-slate-200/80 p-4">
+        <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-3 shadow-md shadow-slate-200/50">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-400 text-sm font-bold text-slate-950 ring-4 ring-amber-200">{(user?.email || 'JD').slice(0, 2).toUpperCase()}</div>
+            <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-slate-800">{user?.email || 'professor@acm.edu'}</p><p className="mt-0.5 text-xs text-amber-600">{roleLabel || 'Department Head'}</p></div>
           </div>
 
           <button
@@ -65,7 +63,7 @@ export default function Sidebar() {
               localStorage.removeItem('user');
               window.location.href = '/login';
             }}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-700"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-blue-300 hover:bg-blue-50"
           >
             <LogOut className="h-4 w-4" />
             Logout

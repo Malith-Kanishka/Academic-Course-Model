@@ -1,69 +1,7 @@
-import { useState } from 'react';
-
-const metricCards = [
-  { label: 'Pending Approvals', value: '18', tone: 'bg-amber-100 text-amber-700' },
-  { label: 'Reviewed Changes', value: '42', tone: 'bg-emerald-100 text-emerald-700' },
-  { label: 'Mastery Score', value: '88.4%', tone: 'bg-violet-100 text-violet-700' },
-];
-
-const filters = ['All', 'Pending', 'Approved', 'Rejected'];
-
-export default function ApprovalsInboxPage() {
-  const [activeFilter, setActiveFilter] = useState('All');
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-violet-600">Approvals</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">Approvals Inbox</h1>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {filters.map((filter) => (
-            <button
-              key={filter}
-              type="button"
-              onClick={() => setActiveFilter(filter)}
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                activeFilter === filter
-                  ? 'bg-violet-600 text-white shadow-sm'
-                  : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              {filter}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        {metricCards.map((card) => (
-          <div key={card.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">{card.label}</p>
-            <div className="mt-4 flex items-center justify-between">
-              <span className="text-3xl font-bold text-slate-900">{card.value}</span>
-              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${card.tone}`}>
-                Live
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-800">Recent submissions</h2>
-          <button type="button" className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100">
-            Export Review
-          </button>
-        </div>
-
-        {/* TEAMMATE COMPONENT SLOT: Insert ReviewTable or ApprovalCardList here */}
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
-          <p className="text-lg font-semibold text-slate-700">Approval queue is ready for integration</p>
-          <p className="mt-2 text-sm text-slate-500">Insert the real approval table or review cards here.</p>
-        </div>
-      </div>
-    </div>
-  );
-}
+import { AlertCircle, CheckCircle2, Clock3, Search } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import ApprovalModal from '../components/ApprovalModal';
+import MasteryChart from '../components/MasteryChart';
+import useApprovals from '../hooks/useApprovals';
+const idOf = (item) => item.id ?? item.approvalId ?? item.planId ?? item.PlanId; const nameOf = (item) => item.studentName ?? item.student?.name ?? item.StudentName ?? 'Unknown student'; const moduleOf = (item) => item.courseModule ?? item.module ?? item.ModuleName ?? 'Unassigned module'; const scoreOf = (item) => Number(item.masteryScore ?? item.score ?? item.FinalScore ?? 0);
+export default function ApprovalsInboxPage() { const { pendingApprovals, auditHistory, loading, error, handleDecision, reload } = useApprovals(); const [tab, setTab] = useState('pending'); const [search, setSearch] = useState(''); const [module, setModule] = useState('All modules'); const [urgency, setUrgency] = useState('All urgency'); const [selected, setSelected] = useState(null); const modules = [...new Set(pendingApprovals.map(moduleOf))]; const visibleItems = useMemo(() => { const source = tab === 'pending' ? pendingApprovals : auditHistory; return source.filter((item) => `${nameOf(item)} ${moduleOf(item)}`.toLowerCase().includes(search.toLowerCase()) && (module === 'All modules' || moduleOf(item) === module) && (urgency === 'All urgency' || item.urgency === urgency)); }, [auditHistory, module, pendingApprovals, search, tab, urgency]); const average = pendingApprovals.length ? Math.round(pendingApprovals.reduce((sum, item) => sum + scoreOf(item), 0) / pendingApprovals.length) : 0; const metrics = [{ label: 'Pending reviews', value: pendingApprovals.length, icon: Clock3, tone: 'text-amber-600 bg-amber-50' }, { label: 'Approved today', value: auditHistory.filter((item) => item.status === 'Approved').length, icon: CheckCircle2, tone: 'text-emerald-600 bg-emerald-50' }, { label: 'Avg mastery score', value: `${average}%`, icon: AlertCircle, tone: 'text-cyan-600 bg-cyan-50' }]; return <div className="space-y-6"><div><p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-600">Human-in-the-loop</p><h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">Approvals Inbox</h1><p className="mt-1 text-sm text-slate-600">Inspect AI remedial plans before they reach students.</p></div><div className="grid gap-4 md:grid-cols-3">{metrics.map(({ label, value, icon: Icon, tone }) => <div key={label} className="rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-md shadow-slate-200/50 backdrop-blur-xl transition hover:shadow-lg"><div className="flex items-center justify-between"><p className="text-sm text-slate-600">{label}</p><span className={`rounded-lg p-2 ${tone}`}><Icon className="h-4 w-4" /></span></div><p className="mt-4 text-3xl font-extrabold tracking-tight text-slate-900">{value}</p></div>)}</div>{error && <div className="flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"><span>{error}</span><button type="button" onClick={reload} className="font-semibold underline">Retry</button></div>}<section className="rounded-2xl border border-slate-200/80 bg-white/80 shadow-md shadow-slate-200/50 backdrop-blur-xl"><div className="flex flex-col gap-4 border-b border-slate-200 p-4 lg:flex-row lg:items-center lg:justify-between"><div className="flex gap-1 rounded-lg bg-slate-100 p-1"><button type="button" onClick={() => setTab('pending')} className={`rounded-md px-4 py-2 text-sm font-semibold ${tab === 'pending' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}>Pending Queue</button><button type="button" onClick={() => setTab('history')} className={`rounded-md px-4 py-2 text-sm font-semibold ${tab === 'history' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}>Audit History</button></div><div className="flex flex-col gap-2 sm:flex-row"><label className="relative"><Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search student or module" className="w-full rounded-lg border border-slate-200 bg-white/70 py-2 pl-9 pr-3 text-sm text-slate-700 outline-none focus:border-blue-500 sm:w-60" /></label><select value={module} onChange={(event) => setModule(event.target.value)} className="rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-sm text-slate-600 outline-none"><option>All modules</option>{modules.map((item) => <option key={item}>{item}</option>)}</select><select value={urgency} onChange={(event) => setUrgency(event.target.value)} className="rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-sm text-slate-600 outline-none"><option>All urgency</option><option>High</option><option>Medium</option><option>Low</option></select></div></div><div className="overflow-x-auto">{loading ? <p className="p-10 text-center text-sm text-slate-500">Loading approvals...</p> : visibleItems.length === 0 ? <p className="p-10 text-center text-sm text-slate-500">No approval records match these filters.</p> : <table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-slate-50/80 text-xs uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3">Student</th><th className="px-5 py-3">Module</th><th className="px-5 py-3">Mastery</th><th className="px-5 py-3">Risk / Status</th><th className="px-5 py-3">Updated</th><th className="px-5 py-3 text-right">Action</th></tr></thead><tbody className="divide-y divide-slate-200">{visibleItems.map((item) => <tr key={idOf(item)} className="transition hover:bg-blue-50/50"><td className="px-5 py-4 font-semibold text-slate-800">{nameOf(item)}<p className="mt-1 font-mono text-[10px] text-slate-400">ID / {idOf(item)}</p></td><td className="px-5 py-4 text-slate-600">{moduleOf(item)}</td><td className="w-28 px-5 py-4"><MasteryChart score={scoreOf(item)} compact /></td><td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${item.status === 'Approved' ? 'bg-emerald-100 text-emerald-700' : item.status === 'Rejected' || item.urgency === 'High' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>{item.status ?? `${item.urgency ?? 'Medium'} risk`}</span></td><td className="px-5 py-4 text-slate-500">{new Date(item.date ?? item.decidedAt ?? '2026-01-01').toLocaleDateString()}</td><td className="px-5 py-4 text-right">{tab === 'pending' ? <button type="button" onClick={() => setSelected(item)} className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-md shadow-blue-200 hover:bg-blue-700">Review Plan</button> : <span className="text-xs text-slate-500">Recorded</span>}</td></tr>)}</tbody></table>}</div></section><ApprovalModal approval={selected} onClose={() => setSelected(null)} onDecision={handleDecision} /></div>; }
