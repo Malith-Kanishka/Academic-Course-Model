@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using ACM.Backend.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ACM.Backend.Migrations
 {
     [DbContext(typeof(ACMDbContext))]
-    partial class ACMDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260924160442_AddApprovalEntities")]
+    partial class AddApprovalEntities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
