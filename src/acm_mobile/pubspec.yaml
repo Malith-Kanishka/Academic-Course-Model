@@ -1,1 +1,28 @@
 name: acm_mobile
+
+description: The Grid mobile client for the Academic Course Model.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  dio: ^5.8.0+1
+  flutter_secure_storage: ^5.1.2
+  go_router: ^14.8.1
+  google_fonts: ^6.2.1
+  provider: ^6.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.2
+
+dependency_overrides:
+  path_provider_foundation: 2.4.4
+
+flutter:
+  uses-material-design: true
