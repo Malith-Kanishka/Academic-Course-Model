@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { FileUp, Search, Plus } from 'lucide-react';
+import ModuleList from '../components/ModuleList';
+import PdfUploader from '../components/PdfUploader';
+import TopicForm from '../components/TopicForm';
 
 const tabs = ['Modules List', 'Upload Syllabus', 'Topic Builder'];
 
@@ -16,14 +19,14 @@ export default function CurriculumPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-600">Curriculum</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-600">Curriculum intelligence</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">Course Planning</h1>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-md shadow-blue-200 transition hover:bg-blue-700"
           >
             <Plus className="h-4 w-4" />
             New Module
@@ -33,10 +36,10 @@ export default function CurriculumPage() {
 
       <div className="grid gap-4 md:grid-cols-3">
         {metricCards.map((card) => (
-          <div key={card.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">{card.label}</p>
+          <div key={card.label} className="rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-md shadow-slate-200/50 backdrop-blur-xl transition-all duration-300 hover:shadow-lg">
+            <p className="text-sm text-slate-600">{card.label}</p>
             <div className="mt-4 flex items-center justify-between">
-              <span className="text-3xl font-bold text-slate-900">{card.value}</span>
+              <span className="text-3xl font-extrabold tracking-tight text-slate-900">{card.value}</span>
               <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${card.tone}`}>
                 Live
               </span>
@@ -45,7 +48,7 @@ export default function CurriculumPage() {
         ))}
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-md shadow-slate-200/50 backdrop-blur-xl">
         <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-wrap gap-2">
             {tabs.map((tab) => (
@@ -55,7 +58,7 @@ export default function CurriculumPage() {
                 onClick={() => setActiveTab(tab)}
                 className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
                   activeTab === tab
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -65,7 +68,7 @@ export default function CurriculumPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <label className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-sm text-slate-500">
               <Search className="h-4 w-4" />
               <input
                 type="search"
@@ -75,7 +78,7 @@ export default function CurriculumPage() {
             </label>
             <button
               type="button"
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-300 hover:bg-blue-50"
             >
               <FileUp className="h-4 w-4" />
               Upload PDF
@@ -84,26 +87,11 @@ export default function CurriculumPage() {
         </div>
 
         <div className="mt-5">
-          {activeTab === 'Modules List' && (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center">
-              <p className="text-lg font-semibold text-slate-700">Modules list panel ready</p>
-              <p className="mt-2 text-sm text-slate-500">{/* TEAMMATE COMPONENT SLOT: Insert ModuleList here */}</p>
-            </div>
-          )}
+          {activeTab === 'Modules List' && <ModuleList />}
 
-          {activeTab === 'Upload Syllabus' && (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center">
-              <p className="text-lg font-semibold text-slate-700">Syllabus upload area ready</p>
-              <p className="mt-2 text-sm text-slate-500">{/* TEAMMATE COMPONENT SLOT: Insert PdfUploader here */}</p>
-            </div>
-          )}
+          {activeTab === 'Upload Syllabus' && <PdfUploader />}
 
-          {activeTab === 'Topic Builder' && (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center">
-              <p className="text-lg font-semibold text-slate-700">Topic builder ready</p>
-              <p className="mt-2 text-sm text-slate-500">{/* TEAMMATE COMPONENT SLOT: Insert TopicForm here */}</p>
-            </div>
-          )}
+          {activeTab === 'Topic Builder' && <TopicForm />}
         </div>
       </div>
     </div>

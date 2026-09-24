@@ -3,12 +3,24 @@ import { useNavigate } from 'react-router-dom';
 import apiClient from '../../../services/apiClient';
 import { useAuthStore } from '../../../store/authStore';
 
+const fallbackUsers = [
+  { id: 'ACM-001', email: 'a.fernando@acm.edu', fullName: 'Dr. Anika Fernando', role: 'DepartmentHead', department: 'Computing', isActive: true },
+  { id: 'ACM-014', email: 'r.silva@acm.edu', fullName: 'Prof. Ravin Silva', role: 'Lecturer', department: 'Software Engineering', isActive: true },
+  { id: 'ACM-027', email: 'n.perera@acm.edu', fullName: 'Dr. Nethmi Perera', role: 'Lecturer', department: 'Data Science', isActive: true },
+  { id: 'ACM-103', email: 'amaya.perera@student.acm.edu', fullName: 'Amaya Perera', role: 'Student', department: 'Computing', isActive: true },
+  { id: 'ACM-117', email: 'ravin.silva@student.acm.edu', fullName: 'Ravin Silva', role: 'Student', department: 'Computing', isActive: false },
+];
+
 export default function useAuth({ loadUsers = false } = {}) {
-  const [users, setUsers] = useState([]);
-  const [isLoading, setIsLoading] = useState(loadUsers);
+  const [users, setUsers] = useState(() => (loadUsers ? fallbackUsers : []));
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const setAuth = useAuthStore((state) => state.setAuth);
+
+  const updateUserStatus = useCallback((id, isActive) => {
+    setUsers((current) => current.map((user) => (user.id === id ? { ...user, isActive } : user)));
+  }, []);
 
   const login = useCallback(async (email, password) => {
     setIsLoading(true);
@@ -61,5 +73,7 @@ export default function useAuth({ loadUsers = false } = {}) {
     isLoading,
     error,
     login,
+    activateUser: (id) => updateUserStatus(id, true),
+    deactivateUser: (id) => updateUserStatus(id, false),
   };
 }
