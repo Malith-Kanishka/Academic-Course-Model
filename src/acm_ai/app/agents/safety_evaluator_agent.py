@@ -76,7 +76,11 @@ class SafetyEvaluatorAgent:
                     "studentId": data.student_id,
                     "topicName": data.topic_name,
                     "finalScore": score,
-                    "flaggedMisconceptions": data.flagged_misconceptions
+                    "flaggedMisconceptions": data.flagged_misconceptions,
+                    "sessionTranscript": [
+                        f"Student evaluated on topic '{data.topic_name}'. "
+                        f"Flagged issues: {', '.join(data.flagged_misconceptions) or 'none'}"
+                    ]
                 }
                 json_bytes = json.dumps(backend_payload).encode("utf-8")
                 req = urllib.request.Request(
@@ -101,7 +105,7 @@ if __name__ == "__main__":
         "topic_name": "ASP.NET Core Middleware",
         "correct_answers": 4,
         "total_questions": 10,
-        "flaggedMisconceptions": ["Misunderstood Middleware Execution Order"]
+        "flagged_misconceptions": ["Misunderstood Middleware Execution Order"]
     }
     
     # Enable HTTP Sync to send evaluation to C# Backend
