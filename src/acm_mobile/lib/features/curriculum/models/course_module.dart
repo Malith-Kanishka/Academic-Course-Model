@@ -5,6 +5,7 @@ class CourseModule {
     required this.title,
     required this.description,
     required this.topics,
+    this.completedTopics = 0,
     this.isFallback = false,
   });
 
@@ -13,6 +14,7 @@ class CourseModule {
   final String title;
   final String description;
   final List<CourseTopic> topics;
+  final int completedTopics;
   final bool isFallback;
 
   factory CourseModule.fromJson(Map<String, dynamic> json) {
@@ -30,6 +32,7 @@ class CourseModule {
                   CourseTopic.fromJson(Map<String, dynamic>.from(topic)))
               .toList()
           : const [],
+      completedTopics: (json['done'] ?? json['Done'] ?? 0) as int,
     );
   }
 }
