@@ -15,6 +15,9 @@ dependencies:
   go_router: ^18.0.1
   google_fonts: ^8.2.1
   provider: ^6.1.2
+  record: ^7.1.1
+  audioplayers: ^6.8.1
+  permission_handler: ^13.0.2
 
 dev_dependencies:
   flutter_test:
