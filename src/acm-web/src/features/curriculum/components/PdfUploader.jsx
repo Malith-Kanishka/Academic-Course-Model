@@ -1,24 +1,28 @@
 import { CheckCircle2, FileUp, UploadCloud } from 'lucide-react';
 import { useState } from 'react';
-import { curriculumService } from '../../../services/curriculumService'; // adjust path as needed
+import useCurriculum from '../hooks/useCurriculum';
 
 export default function PdfUploader({ topics = [], onUploadSuccess }) {
   const [file, setFile] = useState(null);
   const [topicId, setTopicId] = useState('');
   const [title, setTitle] = useState('');
   const [dragging, setDragging] = useState(false);
-  const [status, setStatus] = useState({ loading: false, error: '', success: '' });
+  const [validationError, setValidationError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  
+  const { uploadMaterial, isUploading, uploadProgress, uploadError } = useCurriculum();
 
   const selectFile = (event) => setFile(event.target.files?.[0] ?? null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file || !topicId || !title) {
-      setStatus({ loading: false, error: 'Please select a topic, provide a title, and choose a file.', success: '' });
+      setValidationError('Please select a topic, provide a title, and choose a file.');
       return;
     }
 
-    setStatus({ loading: true, error: '', success: '' });
+    setValidationError('');
+    setSuccessMsg('');
 
     const formData = new FormData();
     formData.append('TopicId', topicId);
@@ -26,17 +30,13 @@ export default function PdfUploader({ topics = [], onUploadSuccess }) {
     formData.append('File', file);
 
     try {
-      await curriculumService.uploadMaterial(formData);
-      setStatus({ loading: false, error: '', success: 'Study material uploaded and parsed successfully!' });
+      await uploadMaterial(formData);
+      setSuccessMsg('Study material uploaded and parsed successfully!');
       setFile(null);
       setTitle('');
       if (onUploadSuccess) onUploadSuccess();
     } catch (err) {
-      setStatus({ 
-        loading: false, 
-        error: err.response?.data?.message || 'Upload failed. Please check your connection or authentication.', 
-        success: '' 
-      });
+      // Error is handled by the hook and will be displayed via uploadError
     }
   };
 
@@ -71,8 +71,9 @@ export default function PdfUploader({ topics = [], onUploadSuccess }) {
         </div>
       </div>
 
-      {status.error && <div className="p-3 bg-red-100 text-red-700 text-sm rounded-lg">{status.error}</div>}
-      {status.success && <div className="p-3 bg-emerald-100 text-emerald-700 text-sm rounded-lg">{status.success}</div>}
+      {validationError && <div className="p-3 bg-red-100 text-red-700 text-sm rounded-lg">{validationError}</div>}
+      {uploadError && <div className="p-3 bg-red-100 text-red-700 text-sm rounded-lg">{uploadError}</div>}
+      {successMsg && <div className="p-3 bg-emerald-100 text-emerald-700 text-sm rounded-lg">{successMsg}</div>}
 
       <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
         <label 
@@ -121,12 +122,23 @@ export default function PdfUploader({ topics = [], onUploadSuccess }) {
             <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700">
               <CheckCircle2 className="mr-1 inline h-4 w-4" />Drafts never publish without review.
             </div>
+            {isUploading && (
+              <div className="mb-4 space-y-2">
+                <div className="flex justify-between text-xs font-semibold text-emerald-700">
+                  <span>Uploading & Processing</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                  <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                </div>
+              </div>
+            )}
             <button
               type="submit"
-              disabled={status.loading}
+              disabled={isUploading}
               className="w-full bg-emerald-600 text-white py-2.5 px-4 rounded-xl font-semibold shadow-md hover:bg-emerald-700 disabled:opacity-50 transition"
             >
-              {status.loading ? 'Uploading & Processing...' : 'Upload & Process Material'}
+              {isUploading ? 'Processing Material...' : 'Upload & Process Material'}
             </button>
           </div>
         </div>
