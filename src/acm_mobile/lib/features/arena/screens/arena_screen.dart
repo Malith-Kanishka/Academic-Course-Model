@@ -6,6 +6,13 @@ import '../../auth/state/auth_controller.dart';
 import '../data/arena_repository.dart';
 import '../../curriculum/models/course_module.dart';
 import '../../curriculum/state/curriculum_controller.dart';
+import 'package:record/record.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:permission_handler/permission_handler.dart';
+import '../services/audio_recorder_service.dart';
+import '../widgets/mic_button.dart';
+import '../widgets/decibel_visualizer.dart';
+import 'dart:io';
 
 class ArenaScreen extends StatefulWidget {
   const ArenaScreen({super.key, this.initialTopic});
@@ -26,6 +33,12 @@ class _ArenaScreenState extends State<ArenaScreen> {
   bool _backendSession = false;
   String? _sessionId;
   String? _sessionNotice;
+  
+  final _audioRecorder = AudioRecorder();
+  final _audioPlayer = AudioPlayer();
+  final _audioService = AudioSessionService();
+  bool _isRecording = false;
+  double _amplitude = 0.0;
 
   @override
   void initState() {
@@ -39,7 +52,82 @@ class _ArenaScreenState extends State<ArenaScreen> {
   @override
   void dispose() {
     _messageController.dispose();
+    _audioRecorder.dispose();
+    _audioPlayer.dispose();
     super.dispose();
+  }
+
+  Future<void> _startRecording() async {
+    final status = await Permission.microphone.request();
+    if (status != PermissionStatus.granted) return;
+
+    if (await _audioRecorder.hasPermission()) {
+      final path = '${Directory.systemTemp.path}/student_audio.m4a';
+      await _audioRecorder.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc),
+        path: path,
+      );
+      setState(() {
+        _isRecording = true;
+      });
+      _startAmplitudeTimer();
+    }
+  }
+
+  void _startAmplitudeTimer() {
+    Future.doWhile(() async {
+      if (!_isRecording) return false;
+      final amp = await _audioRecorder.getAmplitude();
+      if (mounted) {
+        setState(() {
+          _amplitude = (amp.current + 160) / 160; 
+        });
+      }
+      await Future.delayed(const Duration(milliseconds: 100));
+      return mounted && _isRecording;
+    });
+  }
+
+  Future<void> _stopRecordingAndSend() async {
+    if (!_isRecording) return;
+    setState(() => _isRecording = false);
+    final path = await _audioRecorder.stop();
+    if (path != null) {
+      _sendAudio(path);
+    }
+  }
+
+  Future<void> _sendAudio(String path) async {
+    setState(() {
+       _sending = true;
+       _sessionNotice = 'Analyzing speech...';
+    });
+    try {
+      if (_backendSession) {
+        final response = await _audioService.sendAudioTurn(
+          sessionId: _sessionId!,
+          audioPath: path,
+        );
+        setState(() {
+           _messages.add(_DialogueMessage(text: response['transcript'] ?? '(Audio transcript)', fromGuide: false));
+           _messages.add(_DialogueMessage(text: response['aiText'] ?? '(AI response)', fromGuide: true));
+           _sessionNotice = 'AI response received.';
+        });
+        if (response['audioUrl'] != null) {
+           await _audioPlayer.play(UrlSource(response['audioUrl']));
+        }
+      } else {
+        setState(() {
+           _messages.add(const _DialogueMessage(text: '(Simulated audio transcript)', fromGuide: false));
+           _messages.add(const _DialogueMessage(text: 'I heard you! This is a simulated response.', fromGuide: true));
+           _sessionNotice = 'Practice dialogue';
+        });
+      }
+    } catch (e) {
+       if (mounted) setState(() => _sessionNotice = 'Audio upload failed');
+    } finally {
+       if (mounted) setState(() => _sending = false);
+    }
   }
 
   Future<void> _startSession() async {
@@ -274,31 +362,18 @@ class _ArenaScreenState extends State<ArenaScreen> {
               )),
           Card(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
-              child: Row(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
                 children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _messageController,
-                      minLines: 1,
-                      maxLines: 4,
-                      decoration: const InputDecoration(
-                        hintText: 'Add your reasoning...',
-                        border: InputBorder.none,
-                        filled: false,
-                      ),
-                      onSubmitted: (_) => _sendReflection(),
-                    ),
+                  DecibelVisualizer(
+                    isRecording: _isRecording,
+                    amplitude: _amplitude,
                   ),
-                  IconButton.filled(
-                    tooltip: 'Send reflection',
-                    onPressed: _sending ? null : _sendReflection,
-                    icon: _sending
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.send_rounded),
+                  const SizedBox(height: 16),
+                  MicButton(
+                    isRecording: _isRecording,
+                    onTapDown: _startRecording,
+                    onTapUp: _stopRecordingAndSend,
                   ),
                 ],
               ),
