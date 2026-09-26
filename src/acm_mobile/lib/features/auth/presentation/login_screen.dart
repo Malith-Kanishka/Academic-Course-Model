@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../state/auth_controller.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -45,15 +46,19 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const _BrandMark(),
-                  const SizedBox(height: 28),
-                  Text('Welcome back', style: theme.textTheme.displaySmall),
+                  const SizedBox(height: 32),
+                  Text('Welcome back', style: theme.textTheme.headlineMedium),
                   const SizedBox(height: 8),
-                  Text('Sign in to your academic command center.',
-                      style: theme.textTheme.bodyLarge),
-                  const SizedBox(height: 28),
+                  Text(
+                    'Sign in to your academic command center.',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: AppTheme.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                   Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(22),
                       child: Form(
                         key: _formKey,
                         child: Column(
@@ -164,18 +169,47 @@ class _BrandMark extends StatelessWidget {
     return Row(
       children: [
         Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                borderRadius: BorderRadius.circular(14)),
-            child: const Icon(Icons.grid_4x4_rounded, color: Colors.white)),
-        const SizedBox(width: 12),
-        Text('THE GRID',
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppTheme.primaryBlue, AppTheme.indigo],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.primaryBlue.withValues(alpha: 0.28),
+                blurRadius: 22,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: const Icon(Icons.grid_4x4_rounded, color: Colors.white),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'The Grid',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: AppTheme.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                'Academic Course Model - Human-in-the-Loop Engine',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.textMuted,
+                    ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -197,10 +231,57 @@ class _QuickLoginButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: () => onPressed(email, password),
-      icon: Icon(icon, size: 18),
-      label: Text(label),
+    return _QuickLoginChip(
+      label: label,
+      email: email,
+      password: password,
+      icon: icon,
+      onPressed: onPressed,
+    );
+  }
+}
+
+class _QuickLoginChip extends StatefulWidget {
+  const _QuickLoginChip({
+    required this.label,
+    required this.email,
+    required this.password,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final String email;
+  final String password;
+  final IconData icon;
+  final Future<void> Function(String email, String password) onPressed;
+
+  @override
+  State<_QuickLoginChip> createState() => _QuickLoginChipState();
+}
+
+class _QuickLoginChipState extends State<_QuickLoginChip> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedScale(
+      scale: _pressed ? 0.96 : 1,
+      duration: const Duration(milliseconds: 120),
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTapUp: (_) => setState(() => _pressed = false),
+        child: OutlinedButton.icon(
+          onPressed: () => widget.onPressed(widget.email, widget.password),
+          icon: Icon(widget.icon, size: 17),
+          label: Text(widget.label),
+          style: OutlinedButton.styleFrom(
+            backgroundColor: AppTheme.surface,
+            side: const BorderSide(color: AppTheme.border),
+          ),
+        ),
+      ),
     );
   }
 }
