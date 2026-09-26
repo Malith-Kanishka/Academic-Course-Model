@@ -1,26 +1,54 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../../../services/apiClient';
 import { useAuthStore } from '../../../store/authStore';
 
-const fallbackUsers = [
-  { id: 'ACM-001', email: 'a.fernando@acm.edu', fullName: 'Dr. Anika Fernando', role: 'DepartmentHead', department: 'Computing', isActive: true },
-  { id: 'ACM-014', email: 'r.silva@acm.edu', fullName: 'Prof. Ravin Silva', role: 'Lecturer', department: 'Software Engineering', isActive: true },
-  { id: 'ACM-027', email: 'n.perera@acm.edu', fullName: 'Dr. Nethmi Perera', role: 'Lecturer', department: 'Data Science', isActive: true },
-  { id: 'ACM-103', email: 'amaya.perera@student.acm.edu', fullName: 'Amaya Perera', role: 'Student', department: 'Computing', isActive: true },
-  { id: 'ACM-117', email: 'ravin.silva@student.acm.edu', fullName: 'Ravin Silva', role: 'Student', department: 'Computing', isActive: false },
-];
-
 export default function useAuth({ loadUsers = false } = {}) {
-  const [users, setUsers] = useState(() => (loadUsers ? fallbackUsers : []));
-  const [isLoading, setIsLoading] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [isLoading, setIsLoading] = useState(loadUsers);
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const setAuth = useAuthStore((state) => state.setAuth);
 
-  const updateUserStatus = useCallback((id, isActive) => {
-    setUsers((current) => current.map((user) => (user.id === id ? { ...user, isActive } : user)));
+  const updateUserStatus = useCallback(async (id, isActive) => {
+    setError('');
+    try {
+      await apiClient.post(`/auth/${id}/${isActive ? 'activate' : 'deactivate'}`);
+      setUsers((current) => current.map((user) => (user.id === id ? { ...user, isActive } : user)));
+    } catch (requestError) {
+      setError(requestError.response?.data?.message ?? 'Unable to update user status.');
+    }
   }, []);
+
+  useEffect(() => {
+    if (!loadUsers) return undefined;
+    let active = true;
+    const loadUsersFromApi = async () => {
+      setIsLoading(true);
+      try {
+        const response = await apiClient.get('/auth');
+        const payload = response.data ?? [];
+        const records = Array.isArray(payload) ? payload : payload.items ?? [];
+        if (active) {
+          setUsers(records.map((user) => ({
+            ...user,
+            id: user.id ?? user.Id,
+            email: user.email ?? user.Email ?? '',
+            fullName: user.fullName ?? user.FullName ?? `${user.firstName ?? user.FirstName ?? ''} ${user.lastName ?? user.LastName ?? ''}`.trim(),
+            role: user.role ?? user.Role,
+            department: user.department ?? user.Department ?? 'Computing',
+            isActive: user.isActive ?? user.IsActive ?? false,
+          })));
+        }
+      } catch (requestError) {
+        if (active) setError(requestError.response?.data?.message ?? 'Unable to load users from the API.');
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+    loadUsersFromApi();
+    return () => { active = false; };
+  }, [loadUsers]);
 
   const login = useCallback(async (email, password) => {
     setIsLoading(true);

@@ -109,7 +109,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddScoped<ISessionService, SessionService>();
 
 // Register Member 4 Approval & Evaluation Service
-builder.Services.AddSingleton<IApprovalService, ApprovalService>();
+builder.Services.AddScoped<IApprovalService, ApprovalService>();
 
 var app = builder.Build();
 
