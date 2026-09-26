@@ -11,12 +11,18 @@ import 'package:provider/provider.dart';
 import 'package:acm_mobile/main.dart';
 import 'package:acm_mobile/features/auth/data/auth_repository.dart';
 import 'package:acm_mobile/features/auth/state/auth_controller.dart';
+import 'package:acm_mobile/core/theme/theme_mode_controller.dart';
 
 void main() {
   testWidgets('renders the login screen', (WidgetTester tester) async {
     await tester.pumpWidget(
-      ChangeNotifierProvider(
-        create: (_) => AuthController(AuthRepository()),
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(
+            create: (_) => AuthController(AuthRepository()),
+          ),
+          ChangeNotifierProvider(create: (_) => ThemeModeController()),
+        ],
         child: const TheGridApp(),
       ),
     );
