@@ -3,65 +3,88 @@ import 'package:google_fonts/google_fonts.dart';
 
 abstract final class AppTheme {
   static const slate = Color(0xFF0F172A);
-  static const primaryBlue = Color(0xFF2563EB);
-  static const indigo = Color(0xFF4F46E5);
-  static const emerald = Color(0xFF059669);
+  static const surface = Color(0xFF1E293B);
+  static const border = Color(0xFF334155);
+  static const primaryBlue = Color(0xFF3B82F6);
+  static const indigo = Color(0xFF6366F1);
+  static const emerald = Color(0xFF10B981);
+  static const amber = Color(0xFFF59E0B);
+  static const danger = Color(0xFFEF4444);
+  static const textPrimary = Color(0xFFF8FAFC);
+  static const textMuted = Color(0xFF94A3B8);
 
   static ThemeData get light => _build(Brightness.light);
   static ThemeData get dark => _build(Brightness.dark);
 
   static ThemeData _build(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
-    final scheme = ColorScheme.fromSeed(
-      seedColor: primaryBlue,
-      brightness: brightness,
-      surface: isDark ? const Color(0xFF111827) : const Color(0xFFF8FAFC),
-    );
+    final scheme = isDark
+        ? const ColorScheme.dark(
+            primary: primaryBlue,
+            secondary: indigo,
+            surface: surface,
+            error: danger,
+            onSurface: textPrimary,
+            onPrimary: Colors.white,
+            outline: border,
+            outlineVariant: border,
+          )
+        : ColorScheme.fromSeed(seedColor: primaryBlue, brightness: brightness);
     final textTheme = GoogleFonts.manropeTextTheme(
-      ThemeData(brightness: brightness).textTheme,
+      (isDark ? ThemeData.dark() : ThemeData.light()).textTheme,
     );
 
-    return ThemeData(
-      brightness: brightness,
+    return (isDark
+            ? ThemeData.dark(useMaterial3: true)
+            : ThemeData.light(useMaterial3: true))
+        .copyWith(
       colorScheme: scheme,
-      scaffoldBackgroundColor: scheme.surface,
+      scaffoldBackgroundColor: isDark ? slate : scheme.surface,
       textTheme: textTheme,
-      useMaterial3: true,
       appBarTheme: AppBarTheme(
-        backgroundColor: scheme.surface,
+        backgroundColor: isDark ? slate : scheme.surface,
         foregroundColor: scheme.onSurface,
         elevation: 0,
       ),
       cardTheme: CardThemeData(
         elevation: 0,
         margin: EdgeInsets.zero,
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        color: isDark ? surface : Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: isDark ? const BorderSide(color: border) : BorderSide.none,
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        fillColor: isDark ? surface : Colors.white,
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: scheme.outlineVariant)),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: scheme.outlineVariant),
+        ),
         enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: scheme.outlineVariant)),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: scheme.outlineVariant),
+        ),
         focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: primaryBlue, width: 2)),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: primaryBlue, width: 2),
+        ),
       ),
       filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(52),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14))),
+        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52))
+            .copyWith(
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12))),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       ),
     );
   }

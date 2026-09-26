@@ -8,6 +8,13 @@ abstract final class ApiConstants {
     return 'http://localhost:5000/api';
   }
 
+  static String get aiBaseUrl {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:8000';
+    }
+    return 'http://localhost:8000';
+  }
+
   static const login = '/Auth/login';
   static const pendingApprovals = '/Approval/pending';
   static const approvalDecision = '/Approval/decision';
