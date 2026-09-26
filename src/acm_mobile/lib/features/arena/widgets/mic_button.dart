@@ -24,12 +24,12 @@ class MicButton extends StatelessWidget {
         width: isRecording ? 80 : 70,
         height: isRecording ? 80 : 70,
         decoration: BoxDecoration(
-          color: isRecording ? AppTheme.rose : AppTheme.primaryBlue,
+          color: isRecording ? AppTheme.danger : AppTheme.primaryBlue,
           shape: BoxShape.circle,
           boxShadow: isRecording
               ? [
                   BoxShadow(
-                    color: AppTheme.rose.withValues(alpha: 0.5),
+                    color: AppTheme.danger.withValues(alpha: 0.5),
                     blurRadius: 20,
                     spreadRadius: 5,
                   )
