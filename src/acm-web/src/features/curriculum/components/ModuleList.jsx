@@ -1,23 +1,17 @@
 import { BookOpen, ChevronDown, MoreHorizontal } from 'lucide-react';
 import { useState } from 'react';
 
-const fallbackModules = [
-  { code: 'SEF-301', name: 'Software Engineering Fundamentals', topics: 12, done: 9, owner: 'Dr. A. Fernando', status: 'Active' },
-  { code: 'DS-204', name: 'Data Structures & Algorithms', topics: 16, done: 11, owner: 'Prof. R. Silva', status: 'Active' },
-  { code: 'DB-210', name: 'Database Systems', topics: 10, done: 6, owner: 'Dr. N. Perera', status: 'Draft' },
-  { code: 'AI-220', name: 'Applied Machine Learning', topics: 14, done: 8, owner: 'Prof. K. Jayasuriya', status: 'Review' }
-];
-
 export default function ModuleList({ modules = [] }) {
-  // Use backend modules if provided and not empty, otherwise fallback
-  const displayModules = modules.length > 0 ? modules.map(m => ({
+  // Use backend modules
+  const displayModules = modules.map(m => ({
+    id: m.id || m.code,
     code: m.code || 'MOD-000',
     name: m.title || m.name,
-    topics: m.topics?.length || 5, // fallback topic count if relation isn't loaded
-    done: m.done || 3,
+    topics: m.topics?.length || 0,
+    done: m.done || 0,
     owner: m.owner || 'Department Faculty',
     status: m.status || 'Active'
-  })) : fallbackModules;
+  }));
 
   const [open, setOpen] = useState(displayModules[0]?.code);
 
@@ -31,9 +25,9 @@ export default function ModuleList({ modules = [] }) {
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
                 <BookOpen className="h-5 w-5" />
               </div>
-              <button 
-                type="button" 
-                onClick={() => setOpen(open === module.code ? '' : module.code)} 
+              <button
+                type="button"
+                onClick={() => setOpen(open === module.code ? '' : module.code)}
                 className="min-w-0 flex-1 text-left"
               >
                 <div className="flex flex-wrap items-center gap-2">
