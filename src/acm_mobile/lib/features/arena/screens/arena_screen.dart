@@ -29,7 +29,6 @@ class _ArenaScreenState extends State<ArenaScreen> {
   CourseTopic? _selectedTopic;
   bool _sessionStarted = false;
   bool _starting = false;
-  bool _sending = false;
   bool _backendSession = false;
   String? _sessionId;
   String? _sessionNotice;
@@ -99,7 +98,6 @@ class _ArenaScreenState extends State<ArenaScreen> {
 
   Future<void> _sendAudio(String path) async {
     setState(() {
-       _sending = true;
        _sessionNotice = 'Analyzing speech...';
     });
     try {
@@ -125,8 +123,6 @@ class _ArenaScreenState extends State<ArenaScreen> {
       }
     } catch (e) {
        if (mounted) setState(() => _sessionNotice = 'Audio upload failed');
-    } finally {
-       if (mounted) setState(() => _sending = false);
     }
   }
 
@@ -170,42 +166,6 @@ class _ArenaScreenState extends State<ArenaScreen> {
         fromGuide: true,
       ));
     });
-  }
-
-  Future<void> _sendReflection() async {
-    final text = _messageController.text.trim();
-    if (text.isEmpty || _sending) return;
-    setState(() {
-      _messages.add(_DialogueMessage(text: text, fromGuide: false));
-      _messageController.clear();
-      _sending = true;
-    });
-    try {
-      final answer = _backendSession
-          ? await context.read<ArenaRepository>().sendTurn(
-                sessionId: _sessionId!,
-                studentText: text,
-              )
-          : 'What evidence supports that reasoning, and what might change your conclusion?';
-      if (!mounted) return;
-      setState(() {
-        _messages.add(_DialogueMessage(text: answer, fromGuide: true));
-        _sessionNotice =
-            _backendSession ? 'AI response received.' : 'Practice dialogue';
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _messages.add(const _DialogueMessage(
-          text:
-              'The AI service could not be reached. Check the connection and try again.',
-          fromGuide: true,
-        ));
-        _sessionNotice = 'AI service unavailable';
-      });
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
   }
 
   @override
