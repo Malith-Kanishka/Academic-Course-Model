@@ -3,41 +3,27 @@ import { FileUp, Search, Plus } from 'lucide-react';
 import ModuleList from '../components/ModuleList';
 import PdfUploader from '../components/PdfUploader';
 import TopicForm from '../components/TopicForm';
-import { curriculumService } from "../../../services/curriculumService"; // adjust path as needed
+import useCurriculum from '../hooks/useCurriculum';
 
 const tabs = ['Modules List', 'Upload Syllabus', 'Topic Builder'];
 
 export default function CurriculumPage() {
   const [activeTab, setActiveTab] = useState('Modules List');
-  const [modules, setModules] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  const fetchModules = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await curriculumService.getModules();
-      setModules(data);
-    } catch (err) {
-      setError('Could not connect to backend server. Displaying fallback view.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { modules, loading, error, fetchModules } = useCurriculum();
 
   useEffect(() => {
     fetchModules();
-  }, []);
+  }, [fetchModules]);
 
-  // Calculate dynamic stats from real data if available, or fall back
-  const totalModulesCount = modules.length > 0 ? modules.length : 24;
-  const totalTopicsCount = modules.reduce((acc, m) => acc + (m.topics?.length || 0), 0) || 128;
+  // Calculate dynamic stats from real data
+  const totalModulesCount = modules.length;
+  const totalTopicsCount = modules.reduce((acc, m) => acc + (m.topics?.length || 0), 0);
+  const draftModulesCount = modules.filter(m => m.status === 'Draft').length;
 
   const metricCards = [
     { label: 'Total Modules', value: totalModulesCount.toString(), tone: 'bg-blue-100 text-blue-700' },
     { label: 'Active Topics', value: totalTopicsCount.toString(), tone: 'bg-emerald-100 text-emerald-700' },
-    { label: 'Draft Curriculum', value: '7', tone: 'bg-violet-100 text-violet-700' },
+    { label: 'Draft Curriculum', value: draftModulesCount.toString(), tone: 'bg-violet-100 text-violet-700' },
   ];
 
   // Flatten all topics for the PdfUploader component dropdown
@@ -91,11 +77,10 @@ export default function CurriculumPage() {
                 key={tab}
                 type="button"
                 onClick={() => setActiveTab(tab)}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                  activeTab === tab
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${activeTab === tab
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
+                  }`}
               >
                 {tab}
               </button>

@@ -23,11 +23,12 @@ export const curriculumService = {
     return response.data;
   },
 
-  async uploadMaterial(formData) {
+  async uploadMaterial(formData, onUploadProgress) {
     const response = await apiClient.post('/Syllabus/materials/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      onUploadProgress,
     });
     return response.data;
   }

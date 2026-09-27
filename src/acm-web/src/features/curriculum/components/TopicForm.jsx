@@ -1,15 +1,17 @@
 import { Plus, X } from 'lucide-react';
 import { useState } from 'react';
-import { curriculumService } from '../../../services/curriculumService';
+import useCurriculum from '../hooks/useCurriculum';
 
-export default function TopicForm({ modules = [], onCreated }) { 
-  const [topic, setTopic] = useState({ name: '', moduleId: '', objective: '' }); 
+export default function TopicForm({ modules = [], onCreated }) {
+  const [topic, setTopic] = useState({ name: '', moduleId: '', objective: '' });
   const [created, setCreated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  const { createTopic } = useCurriculum();
 
-  const submit = async (event) => { 
-    event.preventDefault(); 
+  const submit = async (event) => {
+    event.preventDefault();
     if (!topic.name || !topic.name.trim() || !topic.moduleId) {
       setError('Please provide a title and select a parent module.');
       return;
@@ -26,7 +28,7 @@ export default function TopicForm({ modules = [], onCreated }) {
         orderIndex: 1
       };
 
-      const result = await curriculumService.createTopic(payload);
+      const result = await createTopic(payload);
       setCreated(true);
       setLoading(false);
       if (onCreated) onCreated(result);
@@ -34,7 +36,7 @@ export default function TopicForm({ modules = [], onCreated }) {
       setLoading(false);
       setError(err.response?.data?.message || 'Failed to create topic via API.');
     }
-  }; 
+  };
 
   return (
     <form onSubmit={submit} className="grid gap-5 lg:grid-cols-[1fr_0.8fr]">
@@ -51,21 +53,21 @@ export default function TopicForm({ modules = [], onCreated }) {
 
         <label className="block text-sm font-semibold text-slate-700">
           Topic name
-          <input 
+          <input
             type="text"
-            value={topic.name || ''} 
-            onChange={(event) => setTopic({ ...topic, name: event.target.value })} 
-            placeholder="e.g. Dependency injection" 
-            className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500" 
+            value={topic.name || ''}
+            onChange={(event) => setTopic({ ...topic, name: event.target.value })}
+            placeholder="e.g. Dependency injection"
+            className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500"
             required
           />
         </label>
 
         <label className="block text-sm font-semibold text-slate-700">
           Parent module
-          <select 
-            value={topic.moduleId || ''} 
-            onChange={(event) => setTopic({ ...topic, moduleId: event.target.value })} 
+          <select
+            value={topic.moduleId || ''}
+            onChange={(event) => setTopic({ ...topic, moduleId: event.target.value })}
             className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500"
             required
           >
@@ -78,16 +80,16 @@ export default function TopicForm({ modules = [], onCreated }) {
 
         <label className="block text-sm font-semibold text-slate-700">
           Learning objective / Content Description
-          <textarea 
-            value={topic.objective || ''} 
-            onChange={(event) => setTopic({ ...topic, objective: event.target.value })} 
-            placeholder="What should students be able to demonstrate? (AI audit target)" 
-            className="mt-2 min-h-24 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500" 
+          <textarea
+            value={topic.objective || ''}
+            onChange={(event) => setTopic({ ...topic, objective: event.target.value })}
+            placeholder="What should students be able to demonstrate? (AI audit target)"
+            className="mt-2 min-h-24 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-500"
           />
         </label>
 
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           disabled={loading}
           className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-200 transition hover:bg-blue-700 disabled:opacity-50"
         >

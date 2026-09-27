@@ -11,10 +11,11 @@ import '../../features/curriculum/models/course_module.dart';
 import '../../features/curriculum/screens/courses_screen.dart';
 import '../../features/curriculum/state/curriculum_controller.dart';
 import '../../features/dashboard/screens/dashboard_screen.dart';
-import '../../features/evaluations/data/evaluation_repository.dart';
-import '../../features/evaluations/screens/evaluations_screen.dart';
-import '../../features/evaluations/state/evaluation_controller.dart';
+import '../../features/remediation/screens/feedback_dashboard_screen.dart';
+import '../../features/remediation/state/remediation_controller.dart';
+import '../../features/remediation/services/remediation_service.dart';
 import '../../features/auth/presentation/login_screen.dart';
+import '../../features/curriculum/screens/topic_detail_screen.dart';
 
 abstract final class AppRouter {
   static GoRouter create(AuthController authController) => GoRouter(
@@ -80,9 +81,18 @@ abstract final class AppRouter {
           GoRoute(
             path: '/evaluations',
             builder: (context, state) => ChangeNotifierProvider(
-              create: (_) => EvaluationController(EvaluationRepository()),
-              child: const EvaluationsScreen(),
+              create: (_) => RemediationController(RemediationService()),
+              child: const FeedbackDashboardScreen(),
             ),
+          ),
+          GoRoute(
+            path: '/topic',
+            builder: (context, state) {
+              final topic = state.extra is CourseTopic
+                  ? state.extra as CourseTopic
+                  : const CourseTopic(id: '', title: 'Error', description: '');
+              return TopicDetailScreen(topic: topic);
+            },
           ),
         ],
       );
