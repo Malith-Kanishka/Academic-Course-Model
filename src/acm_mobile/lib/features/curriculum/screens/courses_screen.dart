@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../models/course_module.dart';
 import '../state/curriculum_controller.dart';
 import '../widgets/module_expansion_tile.dart';
 

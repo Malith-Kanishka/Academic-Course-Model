@@ -9,10 +9,12 @@ using Microsoft.AspNetCore.Mvc;
 public class ApprovalController : ControllerBase
 {
     private readonly IApprovalService _approvalService;
+    private readonly IEmailService _emailService;
 
-    public ApprovalController(IApprovalService approvalService)
+    public ApprovalController(IApprovalService approvalService, IEmailService emailService)
     {
         _approvalService = approvalService;
+        _emailService = emailService;
     }
 
     /// <summary>
@@ -25,6 +27,16 @@ public class ApprovalController : ControllerBase
         if (dto == null) return BadRequest("Invalid session data.");
 
         var report = await _approvalService.ProcessSessionEvaluationAsync(dto);
+
+        if (report?.RemedialPlan?.ApprovalStatus == "PAUSED_FOR_PROFESSOR_APPROVAL")
+        {
+            await _emailService.SendEmailAsync(
+                "professor@university.edu", 
+                "New Remedial Plan Approval Required", 
+                $"A new remedial plan for student {report.StudentId} requires your approval."
+            );
+        }
+
         return Ok(report);
     }
 
@@ -55,6 +67,15 @@ public class ApprovalController : ControllerBase
         );
 
         if (updatedPlan == null) return NotFound("Remedial plan not found.");
+
+        if (updatedPlan.ApprovalStatus == "APPROVED_ACTIVE")
+        {
+            await _emailService.SendEmailAsync(
+                "student@university.edu", 
+                "Remedial Plan Approved", 
+                $"Your remedial plan has been approved. Notes: {updatedPlan.ProfessorNotes}"
+            );
+        }
 
         return Ok(updatedPlan);
     }

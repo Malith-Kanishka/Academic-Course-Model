@@ -16,6 +16,8 @@ import '../../features/remediation/state/remediation_controller.dart';
 import '../../features/remediation/services/remediation_service.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/curriculum/screens/topic_detail_screen.dart';
+import '../../features/evaluations/screens/remedial_plan_screen.dart';
+import '../../features/evaluations/state/evaluation_controller.dart';
 
 abstract final class AppRouter {
   static GoRouter create(AuthController authController) => GoRouter(
@@ -92,6 +94,18 @@ abstract final class AppRouter {
                   ? state.extra as CourseTopic
                   : const CourseTopic(id: '', title: 'Error', description: '');
               return TopicDetailScreen(topic: topic);
+            },
+          ),
+          GoRoute(
+            path: '/remedial-plan',
+            builder: (context, state) {
+              final args = state.extra as Map<String, dynamic>? ?? {};
+              final plan = args['plan'] as Map<String, dynamic>? ?? {};
+              final controller = args['controller'] as EvaluationController;
+              return RemedialPlanScreen(
+                plan: plan,
+                controller: controller,
+              );
             },
           ),
         ],
