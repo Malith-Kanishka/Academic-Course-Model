@@ -4,7 +4,9 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using ACM.Backend.Core.DTOs.Member4;
+using ACM.Backend.Infrastructure.Data;
 using ACM.Backend.Services;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 public class Member4_ApprovalTests
@@ -13,7 +15,11 @@ public class Member4_ApprovalTests
 
     public Member4_ApprovalTests()
     {
-        _approvalService = new ApprovalService();
+        var options = new DbContextOptionsBuilder<ACMDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        _approvalService = new ApprovalService(new ACMDbContext(options));
     }
 
     [Fact]

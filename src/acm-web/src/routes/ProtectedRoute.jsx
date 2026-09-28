@@ -1,24 +1,42 @@
+import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
-import Sidebar from '../components/common/Sidebar';
-import Navbar from '../components/common/Navbar';
+import { useAuthStore } from '../store/authStore';
 
-export default function ProtectedRoute() {
-    const isAuthenticated = !!localStorage.getItem('accessToken');
+const normalizeRole = (value) => {
+  if (value === null || value === undefined || value === '') return '';
 
-    if (!isAuthenticated) {
-        return <Navigate to="/login" replace />;
+  const roleKey = String(value).trim().toLowerCase();
+
+  if (roleKey === 'departmenthead' || roleKey === '0') return 'departmenthead';
+  if (roleKey === 'lecturer' || roleKey === '1') return 'lecturer';
+  if (roleKey === 'teacher' || roleKey === '2') return 'teacher';
+  if (roleKey === 'student' || roleKey === '3') return 'student';
+
+  return roleKey;
+};
+
+export default function ProtectedRoute({ allowedRoles = [] }) {
+  const { isAuthenticated, user } = useAuthStore();
+
+  const token = localStorage.getItem('token');
+  const storedUserRaw = localStorage.getItem('user');
+  const storedUser = storedUserRaw ? JSON.parse(storedUserRaw) : null;
+
+  const activeUser = user || storedUser;
+  const isAuth = Boolean(isAuthenticated || token);
+
+  if (!isAuth || !activeUser) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles.length > 0) {
+    const userRole = normalizeRole(activeUser.role ?? activeUser.Role);
+    const hasPermission = allowedRoles.some((allowedRole) => normalizeRole(allowedRole) === userRole);
+
+    if (!hasPermission) {
+      return <Navigate to="/login" replace />;
     }
+  }
 
-    return (
-        <div className="flex h-screen bg-gray-50 overflow-hidden">
-            <Sidebar />
-            <div className="flex flex-col flex-1 overflow-hidden">
-                <Navbar />
-                {/* The Outlet is where the specific page content gets injected */}
-                <main className="flex-1 p-8 overflow-y-auto">
-                    <Outlet />
-                </main>
-            </div>
-        </div>
-    );
+  return <Outlet />;
 }

@@ -21,6 +21,10 @@ namespace ACM.Backend.Infrastructure.Data
         // Member 3 (Your Tables)
         public DbSet<StudySession> StudySessions { get; set; }
         public DbSet<DialogueTurn> DialogueTurns { get; set; }
+        public DbSet<MasteryReport> MasteryReports { get; set; } = null!;
+        public DbSet<RemedialPlan> RemedialPlans { get; set; } = null!;
+        public DbSet<ApprovalLog> ApprovalLogs { get; set; } = null!;
+        public DbSet<AgentAuditLog> AgentAuditLogs { get; set; } = null!;
 
         // Note: The other members will add their DbSets here.
         // Note: The other 3 members will add their DbSets here later.
@@ -72,6 +76,27 @@ namespace ACM.Backend.Infrastructure.Data
                 .WithOne(d => d.Session)
                 .HasForeignKey(d => d.SessionId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<MasteryReport>()
+                .HasKey(report => report.Id);
+
+            modelBuilder.Entity<RemedialPlan>()
+                .HasKey(plan => plan.Id);
+
+            modelBuilder.Entity<MasteryReport>()
+                .HasOne(report => report.RemedialPlan)
+                .WithOne(plan => plan.MasteryReport)
+                .HasForeignKey<RemedialPlan>(plan => plan.MasteryReportId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<RemedialPlan>()
+                .HasMany<ApprovalLog>()
+                .WithOne(log => log.Plan)
+                .HasForeignKey(log => log.PlanId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<AgentAuditLog>()
+                .HasKey(log => log.Id);
         }
     }
 }

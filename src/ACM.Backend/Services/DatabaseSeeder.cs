@@ -20,118 +20,86 @@ namespace ACM.Backend.Services
         }
 
         /// <summary>
-        /// Seeds the database with initial test data
+        /// Seeds the database with initial test data and aligns credentials with frontend quick-login defaults.
         /// </summary>
         public async Task SeedAsync()
         {
             try
             {
-                // Check if data already exists
-                if (await _context.Users.AnyAsync())
-                {
-                    _logger.LogInformation("Database already seeded. Skipping.");
-                    return;
-                }
+                _logger.LogInformation("Checking and running database seeding...");
 
-                _logger.LogInformation("Starting database seeding...");
+                // 1. Seed Department Head accounts (Matches frontend 'Admin@123')
+                var deptHead = await EnsureUserExistsAsync("depthead@acm.edu", "Department", "Head", "Admin@123", UserRole.DepartmentHead, null);
+                await EnsureUserExistsAsync("admin@acm.edu", "System", "Admin", "AdminPassword123!", UserRole.DepartmentHead, null);
 
-                // Seed DepartmentHead (Admin)
-                var admin = await SeedDepartmentHeadAsync();
-                _logger.LogInformation($"✓ Created DepartmentHead: {admin.Email}");
+                Guid adminId = deptHead.Id;
 
-                // Seed Lecturer
-                var lecturer = await SeedLecturerAsync(admin.Id);
-                _logger.LogInformation($"✓ Created Lecturer: {lecturer.Email}");
+                // 2. Seed Lecturer (Matches frontend 'Lecturer@123')
+                await EnsureUserExistsAsync("lecturer@acm.edu", "Dr.", "Lecturer", "Lecturer@123", UserRole.Lecturer, adminId);
 
-                // Seed Teacher
-                var teacher = await SeedTeacherAsync(admin.Id);
-                _logger.LogInformation($"✓ Created Teacher: {teacher.Email}");
+                // 3. Seed Teacher (Matches frontend 'Teacher@123')
+                await EnsureUserExistsAsync("teacher@acm.edu", "John", "Teacher", "Teacher@123", UserRole.Teacher, adminId);
 
-                // Seed Students (with auto-generated AgentPersonalities)
-                var student1 = await SeedStudentAsync("student1@acm.edu", "Alice", "Johnson", admin.Id);
-                _logger.LogInformation($"✓ Created Student: {student1.Email} (with AgentPersonality)");
+                // 4. Seed Primary Student (Matches frontend 'student@acm.edu' / 'Student@123')
+                await EnsureUserExistsAsync("student@acm.edu", "Alice", "Smith", "Student@123", UserRole.Student, adminId);
 
-                var student2 = await SeedStudentAsync("student2@acm.edu", "Bob", "Smith", admin.Id);
-                _logger.LogInformation($"✓ Created Student: {student2.Email} (with AgentPersonality)");
+                // Additional demo students
+                await EnsureUserExistsAsync("student1@acm.edu", "Alice", "Johnson", "Student@123", UserRole.Student, adminId);
+                await EnsureUserExistsAsync("student2@acm.edu", "Bob", "Smith", "Student@123", UserRole.Student, adminId);
 
-                var student3 = await SeedStudentAsync("student3@acm.edu", "Carol", "Davis", admin.Id);
-                _logger.LogInformation($"✓ Created Student: {student3.Email} (with AgentPersonality)");
-
-                // Seed a test Module + Topic (inserted directly - bypasses the AI audit
-                // service in CurriculumService.CreateTopicAsync, which isn't running in dev)
+                // 5. Seed Test Module & Topic
                 await SeedTestModuleAsync();
-                _logger.LogInformation("✓ Created test Module: CS101 - Intro to Computer Science (with 1 topic)");
 
                 _logger.LogInformation("✓ Database seeding completed successfully!");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error seeding database: {ex.Message}");
+                _logger.LogError($"Error during database seeding: {ex.Message}");
                 throw;
             }
         }
 
-        private async Task<UserResponseDto> SeedDepartmentHeadAsync()
+        private async Task<UserResponseDto> EnsureUserExistsAsync(string email, string firstName, string lastName, string password, UserRole role, Guid? createdByUserId)
         {
-            var deptHeadDto = new RegisterUserDto
+            var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+            if (existingUser != null)
             {
-                Email = "admin@acm.edu",
-                FirstName = "System",
-                LastName = "Admin",
-                Password = "AdminPassword123!",
-                Role = UserRole.DepartmentHead
-            };
+                // Update password hash and active status to guarantee working quick-login credentials
+                existingUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
+                existingUser.IsActive = true;
+                existingUser.FirstName = firstName;
+                existingUser.LastName = lastName;
+                existingUser.Role = role;
 
-            return await _userService.RegisterUserAsync(deptHeadDto, null);
-        }
+                await _context.SaveChangesAsync();
+                _logger.LogInformation($"✓ Verified/Updated seed user: {email}");
 
-        private async Task<UserResponseDto> SeedLecturerAsync(Guid createdByUserId)
-        {
-            var lecturerDto = new RegisterUserDto
-            {
-                Email = "lecturer@acm.edu",
-                FirstName = "Dr.",
-                LastName = "Lecturer",
-                Password = "LecturerPass123!",
-                Role = UserRole.Lecturer
-            };
+                return new UserResponseDto
+                {
+                    Id = existingUser.Id,
+                    Email = existingUser.Email,
+                    FirstName = existingUser.FirstName,
+                    LastName = existingUser.LastName,
+                    Role = existingUser.Role
+                };
+            }
 
-            return await _userService.RegisterUserAsync(lecturerDto, createdByUserId);
-        }
-
-        private async Task<UserResponseDto> SeedTeacherAsync(Guid createdByUserId)
-        {
-            var teacherDto = new RegisterUserDto
-            {
-                Email = "teacher@acm.edu",
-                FirstName = "John",
-                LastName = "Teacher",
-                Password = "TeacherPass123!",
-                Role = UserRole.Teacher
-            };
-
-            return await _userService.RegisterUserAsync(teacherDto, createdByUserId);
-        }
-
-        private async Task<UserResponseDto> SeedStudentAsync(string email, string firstName, string lastName, Guid createdByUserId)
-        {
-            var studentDto = new RegisterUserDto
+            var registerDto = new RegisterUserDto
             {
                 Email = email,
                 FirstName = firstName,
                 LastName = lastName,
-                Password = "StudentPass123!",
-                Role = UserRole.Student
+                Password = password,
+                Role = role
             };
 
-            return await _userService.RegisterUserAsync(studentDto, createdByUserId);
+            var createdUser = await _userService.RegisterUserAsync(registerDto, createdByUserId);
+            _logger.LogInformation($"✓ Created missing seed user: {createdUser.Email}");
+            return createdUser;
         }
 
         private async Task SeedTestModuleAsync()
         {
-            // Unlike SeedAsync's Users check, this has no gate of its own - guard here
-            // so re-seeding after unrelated resets (e.g. the Users table being cleared
-            // by an unrelated migration) doesn't insert a duplicate CS101 module.
             if (await _context.Modules.AnyAsync(m => m.Code == "CS101"))
             {
                 return;
@@ -161,6 +129,7 @@ namespace ACM.Backend.Services
             _context.Topics.Add(topic);
 
             await _context.SaveChangesAsync();
+            _logger.LogInformation("✓ Created test Module: CS101 - Intro to Computer Science (with 1 topic)");
         }
     }
 
@@ -169,20 +138,15 @@ namespace ACM.Backend.Services
     /// </summary>
     public static class DatabaseSeederExtensions
     {
-        /// <summary>
-        /// Seeds the database with initial test data
-        /// </summary>
         public static async Task SeedDatabaseAsync(this WebApplication app)
         {
-            using (var scope = app.Services.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<ACMDbContext>();
-                var userService = scope.ServiceProvider.GetRequiredService<IUserService>();
-                var logger = scope.ServiceProvider.GetRequiredService<ILogger<DatabaseSeeder>>();
+            using var scope = app.Services.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ACMDbContext>();
+            var userService = scope.ServiceProvider.GetRequiredService<IUserService>();
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<DatabaseSeeder>>();
 
-                var seeder = new DatabaseSeeder(context, userService, logger);
-                await seeder.SeedAsync();
-            }
+            var seeder = new DatabaseSeeder(context, userService, logger);
+            await seeder.SeedAsync();
         }
     }
 }
