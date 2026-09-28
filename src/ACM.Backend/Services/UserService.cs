@@ -23,7 +23,7 @@ namespace ACM.Backend.Services
         {
             try
             {
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email && u.IsActive);
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
 
                 if (user == null)
                 {
@@ -35,6 +35,14 @@ namespace ACM.Backend.Services
                 {
                     _logger.LogWarning($"Failed login attempt for user: {request.Email}");
                     return new AuthResponseDto { Success = false, Message = "Invalid email or password" };
+                }
+
+                // Only reveal deactivation once the password has already been verified,
+                // so probing emails alone can't be used to enumerate account status.
+                if (!user.IsActive)
+                {
+                    _logger.LogWarning($"Login attempt for deactivated user: {request.Email}");
+                    return new AuthResponseDto { Success = false, Message = "Your account has been deactivated. Contact your Department Head." };
                 }
 
                 var accessToken = _jwtTokenGenerator.GenerateAccessToken(user);
@@ -75,9 +83,13 @@ namespace ACM.Backend.Services
         {
             try
             {
+                // Note: rt.IsValid is a C#-only computed property (not a mapped column) -
+                // EF Core/Npgsql can't translate it to SQL, so the underlying conditions
+                // (IsRevoked, ExpiresAt) are inlined here instead.
+                var now = DateTime.UtcNow;
                 var storedRefreshToken = await _context.RefreshTokens
                     .Include(rt => rt.User)
-                    .FirstOrDefaultAsync(rt => rt.Token == refreshToken && rt.IsValid);
+                    .FirstOrDefaultAsync(rt => rt.Token == refreshToken && !rt.IsRevoked && rt.ExpiresAt > now);
 
                 if (storedRefreshToken == null)
                 {
@@ -265,6 +277,12 @@ namespace ACM.Backend.Services
             {
                 _logger.LogWarning($"Password change failed - incorrect current password for user: {user.Email}");
                 return false;
+            }
+
+            if (ValidatePasswordHash(newPassword, user.PasswordHash))
+            {
+                _logger.LogWarning($"Password change rejected - new password same as current for user: {user.Email}");
+                throw new InvalidOperationException("New password must be different from the current password");
             }
 
             user.PasswordHash = HashPassword(newPassword);
