@@ -6,6 +6,7 @@ import { useAuthStore } from '../../../store/authStore';
 const normalizeUser = (user) => ({
   ...user,
   id: user.id ?? user.Id,
+  shortId: user.shortId ?? user.ShortId ?? '',
   email: user.email ?? user.Email ?? '',
   firstName: user.firstName ?? user.FirstName ?? '',
   lastName: user.lastName ?? user.LastName ?? '',

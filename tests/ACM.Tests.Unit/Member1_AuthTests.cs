@@ -239,4 +239,49 @@ public class Member1_AuthTests
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.ChangePasswordAsync(user.Id, "Str0ng!Pass", "Str0ng!Pass"));
     }
+
+    [Theory]
+    [InlineData(UserRole.DepartmentHead, "DH")]
+    [InlineData(UserRole.Lecturer, "LC")]
+    [InlineData(UserRole.Teacher, "TC")]
+    [InlineData(UserRole.Student, "ST")]
+    public async Task RegisterUserAsync_AssignsRolePrefixedShortId(UserRole role, string expectedPrefix)
+    {
+        using var context = CreateContext();
+        var service = CreateUserService(context);
+        var dto = ValidDepartmentHeadRegistration("prefix.test@acm.edu");
+        dto.Role = role;
+
+        var result = await service.RegisterUserAsync(dto, null);
+
+        Assert.Equal($"{expectedPrefix}001", result.ShortId);
+    }
+
+    [Fact]
+    public async Task RegisterUserAsync_SameRoleTwice_IncrementsShortIdSequentially()
+    {
+        using var context = CreateContext();
+        var service = CreateUserService(context);
+
+        var first = await service.RegisterUserAsync(ValidDepartmentHeadRegistration("lecturer.one@acm.edu"), null);
+        var second = await service.RegisterUserAsync(ValidDepartmentHeadRegistration("lecturer.two@acm.edu"), null);
+
+        Assert.Equal("LC001", first.ShortId);
+        Assert.Equal("LC002", second.ShortId);
+    }
+
+    [Fact]
+    public async Task RegisterUserAsync_DifferentRoles_UseIndependentSequences()
+    {
+        using var context = CreateContext();
+        var service = CreateUserService(context);
+
+        var lecturer = await service.RegisterUserAsync(ValidDepartmentHeadRegistration("indep.lecturer@acm.edu"), null);
+        var studentDto = ValidDepartmentHeadRegistration("indep.student@acm.edu");
+        studentDto.Role = UserRole.Student;
+        var student = await service.RegisterUserAsync(studentDto, null);
+
+        Assert.Equal("LC001", lecturer.ShortId);
+        Assert.Equal("ST001", student.ShortId);
+    }
 }

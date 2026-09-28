@@ -174,7 +174,6 @@ export default function AdminUsersPage() {
       <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-md shadow-slate-200/50 backdrop-blur-xl">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-wrap gap-2">
-            {roleOptions.slice(0, 3).map((role) => <button key={role} type="button" onClick={() => setRoleFilter(role)} className={`rounded-lg px-3 py-2 text-xs font-semibold ${roleFilter === role ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>{role === 'All Roles' ? 'All users' : role === 'DepartmentHead' ? 'Dept heads' : `${role}s`}</button>)}
             <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-sm text-slate-500">
               <Search className="h-4 w-4" />
               <input

@@ -13,10 +13,20 @@ const BASE_LINKS = [
   { name: 'Session monitor', path: '/sessions', icon: BriefcaseBusiness },
 ];
 
+// The Department Admin dashboard only needs its own two tools - the rest of the
+// workspace nav (Overview/Curriculum/Session monitor) is for the other roles.
+const DEPARTMENT_HEAD_LINKS = [
+  { name: 'User directory', path: '/admin/users', icon: Users },
+  { name: 'Approvals', path: '/approvals', icon: CheckCheck },
+];
+
 export default function Sidebar() {
   const { user } = useAuthStore();
   const role = user?.role ?? user?.Role ?? 'Student';
   const roleLabel = String(role).replace(/([A-Z])/g, ' $1').trim() || 'Student';
+  const normalizedRole = String(role).toLowerCase();
+  const isDepartmentHead = role === 0 || normalizedRole === '0' || normalizedRole === 'departmenthead';
+  const navLinks = isDepartmentHead ? DEPARTMENT_HEAD_LINKS : BASE_LINKS;
 
   const [pendingCount, setPendingCount] = useState(null); // null = loading
 
@@ -49,7 +59,7 @@ export default function Sidebar() {
 
       <div className="px-5 pt-6"><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Workspace</p></div>
       <nav className="flex-1 space-y-1 px-3 py-3">
-        {BASE_LINKS.map(({ name, path, icon: Icon }) => (
+        {navLinks.map(({ name, path, icon: Icon }) => (
           <NavLink
             key={name}
             to={path}

@@ -14,6 +14,7 @@ export default function UserTable({ users, onActivate, onDeactivate, onEdit, isL
 			<table className="min-w-full divide-y divide-slate-200 text-left text-sm">
 				<thead className="bg-slate-50/80 text-xs uppercase tracking-wide text-slate-500">
 					<tr>
+						<th className="px-6 py-3 font-semibold">ID</th>
 						<th className="px-6 py-3 font-semibold">User</th>
 						<th className="px-6 py-3 font-semibold">Email</th>
 						<th className="px-6 py-3 font-semibold">Department</th>
@@ -25,7 +26,12 @@ export default function UserTable({ users, onActivate, onDeactivate, onEdit, isL
 				<tbody className="divide-y divide-slate-200">
 					{users.map((user) => (
 						<tr key={user.id} className="transition hover:bg-blue-50/50">
-							<td className="whitespace-nowrap px-6 py-4"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">{(user.fullName || '?').split(' ').map((part) => part[0]).slice(0, 2).join('')}</div><div><p className="font-semibold text-slate-800">{user.fullName}</p><p className="font-mono text-[10px] text-slate-400">{user.id}</p></div></div></td>
+							<td className="whitespace-nowrap px-6 py-4">
+								<span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-xs font-semibold text-slate-600">
+									{user.shortId || '—'}
+								</span>
+							</td>
+							<td className="whitespace-nowrap px-6 py-4"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">{(user.fullName || '?').split(' ').map((part) => part[0]).slice(0, 2).join('')}</div><div><p className="font-semibold text-slate-800">{user.fullName}</p></div></div></td>
 							<td className="whitespace-nowrap px-6 py-4 text-slate-600">{user.email}</td>
 							<td className="whitespace-nowrap px-6 py-4 text-slate-600">{user.department || 'Computing'}</td>
 							<td className="whitespace-nowrap px-6 py-4"><span className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">{user.role}</span></td>

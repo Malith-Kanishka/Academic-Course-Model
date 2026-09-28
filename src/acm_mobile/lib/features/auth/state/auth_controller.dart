@@ -65,6 +65,49 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool isUpdatingProfile = false;
+  String? profileError;
+
+  Future<bool> updateProfile({
+    required String firstName,
+    required String lastName,
+  }) async {
+    final id = user?['id']?.toString();
+    if (id == null) {
+      profileError = 'Unable to determine your account ID.';
+      notifyListeners();
+      return false;
+    }
+    isUpdatingProfile = true;
+    profileError = null;
+    notifyListeners();
+    try {
+      final updated = await _repository.updateProfile(
+        id,
+        firstName: firstName,
+        lastName: lastName,
+      );
+      user = {
+        ...?user,
+        if (updated.isNotEmpty)
+          ...updated
+        else ...{'firstName': firstName, 'lastName': lastName},
+      };
+      return true;
+    } on DioException catch (error) {
+      profileError = error.response?.data is Map
+          ? (error.response?.data['message']?.toString() ??
+              'Unable to update your name.')
+          : 'Unable to update your name.';
+    } catch (_) {
+      profileError = 'Unable to update your name.';
+    } finally {
+      isUpdatingProfile = false;
+      notifyListeners();
+    }
+    return false;
+  }
+
   Map<String, dynamic>? _userFromToken(String? token) {
     if (token == null) return null;
     try {

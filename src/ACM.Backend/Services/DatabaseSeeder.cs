@@ -28,6 +28,9 @@ namespace ACM.Backend.Services
             {
                 _logger.LogInformation("Checking and running database seeding...");
 
+                // 0. Backfill short IDs (e.g. "ST001") for any user created before this feature existed
+                await BackfillShortIdsAsync();
+
                 // 1. Seed Department Head accounts (Matches frontend 'Admin@123')
                 var deptHead = await EnsureUserExistsAsync("depthead@acm.edu", "Department", "Head", "Admin@123", UserRole.DepartmentHead, null);
                 await EnsureUserExistsAsync("admin@acm.edu", "System", "Admin", "AdminPassword123!", UserRole.DepartmentHead, null);
@@ -80,6 +83,7 @@ namespace ACM.Backend.Services
                 return new UserResponseDto
                 {
                     Id = existingUser.Id,
+                    ShortId = existingUser.ShortId ?? "—",
                     Email = existingUser.Email,
                     FirstName = existingUser.FirstName,
                     LastName = existingUser.LastName,
@@ -99,6 +103,54 @@ namespace ACM.Backend.Services
             var createdUser = await _userService.RegisterUserAsync(registerDto, createdByUserId);
             _logger.LogInformation($"✓ Created missing seed user: {createdUser.Email}");
             return createdUser;
+        }
+
+        /// <summary>
+        /// Assigns a role-prefixed short ID (e.g. "ST001") to any user row that predates this
+        /// feature. Idempotent - only touches rows where ShortId is still unset.
+        /// </summary>
+        private async Task BackfillShortIdsAsync()
+        {
+            var usersMissingShortId = await _context.Users
+                .Where(u => u.ShortId == null || u.ShortId == "")
+                .OrderBy(u => u.Role)
+                .ThenBy(u => u.CreatedAt)
+                .ToListAsync();
+
+            if (usersMissingShortId.Count == 0)
+            {
+                return;
+            }
+
+            var nextNumberByRole = new Dictionary<UserRole, int>();
+            var existingShortIds = await _context.Users
+                .Where(u => u.ShortId != null && u.ShortId != "")
+                .Select(u => new { u.Role, u.ShortId })
+                .ToListAsync();
+
+            foreach (var group in existingShortIds.GroupBy(u => u.Role))
+            {
+                var prefix = group.Key.ShortIdPrefix();
+                var max = 0;
+                foreach (var entry in group)
+                {
+                    if (entry.ShortId!.StartsWith(prefix) && int.TryParse(entry.ShortId.Substring(prefix.Length), out var number))
+                    {
+                        max = Math.Max(max, number);
+                    }
+                }
+                nextNumberByRole[group.Key] = max;
+            }
+
+            foreach (var user in usersMissingShortId)
+            {
+                var next = nextNumberByRole.TryGetValue(user.Role, out var current) ? current + 1 : 1;
+                nextNumberByRole[user.Role] = next;
+                user.ShortId = $"{user.Role.ShortIdPrefix()}{next:D3}";
+            }
+
+            await _context.SaveChangesAsync();
+            _logger.LogInformation($"✓ Backfilled short IDs for {usersMissingShortId.Count} existing user(s)");
         }
 
         private async Task SeedTestModuleAsync()
