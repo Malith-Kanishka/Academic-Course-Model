@@ -27,8 +27,8 @@ migrate_working_dir/
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
-.flutter-plugins-dependencies
 .pub-cache/
+src/acm_mobile/.flutter-plugins-dependencies
 .pub/
 /build/
 /coverage/
