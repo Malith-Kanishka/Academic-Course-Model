@@ -210,9 +210,27 @@ namespace ACM.Backend.Services
             return user == null ? null : MapToUserResponseDto(user);
         }
 
-        public async Task<IEnumerable<UserResponseDto>> GetAllUsersAsync()
+        public async Task<IEnumerable<UserResponseDto>> GetAllUsersAsync(string? email = null, UserRole? role = null, bool? isActive = null)
         {
-            var users = await _context.Users.ToListAsync();
+            var query = _context.Users.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                var pattern = email.Trim().ToLower();
+                query = query.Where(u => u.Email.ToLower().Contains(pattern));
+            }
+
+            if (role.HasValue)
+            {
+                query = query.Where(u => u.Role == role.Value);
+            }
+
+            if (isActive.HasValue)
+            {
+                query = query.Where(u => u.IsActive == isActive.Value);
+            }
+
+            var users = await query.OrderBy(u => u.Email).ToListAsync();
             return users.Select(MapToUserResponseDto);
         }
 
@@ -222,20 +240,24 @@ namespace ACM.Backend.Services
             return users.Select(MapToUserResponseDto);
         }
 
-        public async Task<bool> UpdateUserAsync(Guid userId, string firstName, string lastName)
+        public async Task<UserResponseDto?> UpdateUserAsync(Guid userId, string firstName, string lastName, UserRole? role = null)
         {
             var user = await _context.Users.FindAsync(userId);
-            if (user == null) return false;
+            if (user == null) return null;
 
             user.FirstName = firstName;
             user.LastName = lastName;
+            if (role.HasValue)
+            {
+                user.Role = role.Value;
+            }
             user.UpdatedAt = DateTime.UtcNow;
 
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
 
             _logger.LogInformation($"User updated: {user.Email}");
-            return true;
+            return MapToUserResponseDto(user);
         }
 
         public async Task<bool> DeactivateUserAsync(Guid userId)

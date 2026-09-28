@@ -150,15 +150,19 @@ namespace ACM.Backend.Controllers
         }
 
         /// <summary>
-        /// Get All Users - List all users in the system
+        /// Get All Users - List users, optionally searching by (partial) email and filtering by role/active status
         /// </summary>
         [HttpGet]
         [Authorize(Roles = "DepartmentHead")]
         [ProducesResponseType(typeof(IEnumerable<UserResponseDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult<IEnumerable<UserResponseDto>>> GetAllUsers()
+        public async Task<ActionResult<IEnumerable<UserResponseDto>>> GetAllUsers([FromQuery] string? email, [FromQuery] UserRole? role, [FromQuery] bool? isActive)
         {
-            var users = await _userService.GetAllUsersAsync();
+            if (!string.IsNullOrEmpty(email) && email.Trim().Length < 2)
+                return BadRequest(new { message = "Email search term must be at least 2 characters" });
+
+            var users = await _userService.GetAllUsersAsync(email, role, isActive);
             return Ok(users);
         }
 
@@ -180,11 +184,11 @@ namespace ACM.Backend.Controllers
         }
 
         /// <summary>
-        /// Update User Profile - Modify user's first and last name
+        /// Update User Profile - Modify user's first name, last name, and (Department Head only) role
         /// </summary>
         [HttpPut("{id}")]
         [Authorize]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(UserResponseDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserDto request)
@@ -197,14 +201,19 @@ namespace ACM.Backend.Controllers
             if (!Guid.TryParse(userIdClaim?.Value, out Guid currentUserId))
                 return Unauthorized();
 
-            if (currentUserId != id && !User.IsInRole(UserRole.DepartmentHead.ToString()))
+            var isDepartmentHead = User.IsInRole(UserRole.DepartmentHead.ToString());
+
+            if (currentUserId != id && !isDepartmentHead)
                 return StatusCode(StatusCodes.Status403Forbidden, new { message = "You can only update your own profile" });
 
-            var success = await _userService.UpdateUserAsync(id, request.FirstName, request.LastName);
-            if (!success)
+            if (request.Role.HasValue && !isDepartmentHead)
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "Only Department Heads can change a user's role" });
+
+            var updatedUser = await _userService.UpdateUserAsync(id, request.FirstName, request.LastName, request.Role);
+            if (updatedUser == null)
                 return NotFound();
 
-            return NoContent();
+            return Ok(updatedUser);
         }
 
         /// <summary>
@@ -244,10 +253,15 @@ namespace ACM.Backend.Controllers
         [HttpPost("{id}/deactivate")]
         [Authorize(Roles = "DepartmentHead")]
         [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> DeactivateUser(Guid id)
         {
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+            if (Guid.TryParse(userIdClaim?.Value, out Guid currentUserId) && currentUserId == id)
+                return BadRequest(new { message = "You cannot deactivate your own account" });
+
             var success = await _userService.DeactivateUserAsync(id);
             if (!success)
                 return NotFound();
@@ -296,8 +310,15 @@ namespace ACM.Backend.Controllers
 
     public class UpdateUserDto
     {
+        [Required(ErrorMessage = "First name is required")]
+        [MaxLength(100, ErrorMessage = "First name cannot exceed 100 characters")]
         public string FirstName { get; set; } = null!;
+
+        [Required(ErrorMessage = "Last name is required")]
+        [MaxLength(100, ErrorMessage = "Last name cannot exceed 100 characters")]
         public string LastName { get; set; } = null!;
+
+        public UserRole? Role { get; set; }
     }
 
     public class ChangePasswordDto

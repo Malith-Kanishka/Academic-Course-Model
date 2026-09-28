@@ -1,23 +1,19 @@
-import apiClient from './apiClient';
+import apiClient, { logoutAndRedirect, scheduleTokenRefresh } from './apiClient';
+import { useAuthStore } from '../store/authStore';
 
 export const authService = {
     login: async (email, password) => {
         const response = await apiClient.post('/auth/login', { email, password });
-        const token = response.data?.accessToken ?? response.data?.token ?? null;
+        const { accessToken, refreshToken, user } = response.data ?? {};
 
-        if (token) {
-            localStorage.setItem('token', token);
-        }
-
-        if (response.data?.user) {
-            localStorage.setItem('user', JSON.stringify(response.data.user));
+        if (accessToken) {
+            useAuthStore.getState().setAuth(user, accessToken, refreshToken);
+            scheduleTokenRefresh(accessToken);
         }
 
         return response.data;
     },
     logout: () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
+        logoutAndRedirect();
     }
 };

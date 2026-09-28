@@ -10,9 +10,9 @@ namespace ACM.Backend.Core.Interfaces
         Task<UserResponseDto> RegisterUserAsync(RegisterUserDto request, Guid? createdByUserId);
         Task<UserResponseDto?> GetUserByIdAsync(Guid userId);
         Task<UserResponseDto?> GetUserByEmailAsync(string email);
-        Task<IEnumerable<UserResponseDto>> GetAllUsersAsync();
+        Task<IEnumerable<UserResponseDto>> GetAllUsersAsync(string? email = null, UserRole? role = null, bool? isActive = null);
         Task<IEnumerable<UserResponseDto>> GetUsersByRoleAsync(UserRole role);
-        Task<bool> UpdateUserAsync(Guid userId, string firstName, string lastName);
+        Task<UserResponseDto?> UpdateUserAsync(Guid userId, string firstName, string lastName, UserRole? role = null);
         Task<bool> DeactivateUserAsync(Guid userId);
         Task<bool> ActivateUserAsync(Guid userId);
         Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword);
