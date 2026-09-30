@@ -28,4 +28,16 @@ class AuthRepository {
   }
 
   Future<void> logout() => _storage.clear();
+
+  Future<Map<String, dynamic>> updateProfile(
+    String id, {
+    required String firstName,
+    required String lastName,
+  }) async {
+    final response = await _client.dio.put<Map<String, dynamic>>(
+      ApiConstants.userById(id),
+      data: {'firstName': firstName, 'lastName': lastName},
+    );
+    return response.data ?? <String, dynamic>{};
+  }
 }

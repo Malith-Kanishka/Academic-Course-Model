@@ -18,4 +18,10 @@ abstract final class ApiConstants {
   static const login = '/Auth/login';
   static const pendingApprovals = '/Approval/pending';
   static const approvalDecision = '/Approval/decision';
+
+  static const users = '/Auth';
+  static const registerUser = '/Auth/register';
+  static String userById(String id) => '/Auth/$id';
+  static String activateUser(String id) => '/Auth/$id/activate';
+  static String deactivateUser(String id) => '/Auth/$id/deactivate';
 }

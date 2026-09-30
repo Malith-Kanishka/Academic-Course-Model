@@ -1,54 +1,126 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import apiClient from '../../../services/apiClient';
+import apiClient, { scheduleTokenRefresh } from '../../../services/apiClient';
 import { useAuthStore } from '../../../store/authStore';
 
-export default function useAuth({ loadUsers = false } = {}) {
+const normalizeUser = (user) => ({
+  ...user,
+  id: user.id ?? user.Id,
+  shortId: user.shortId ?? user.ShortId ?? '',
+  email: user.email ?? user.Email ?? '',
+  firstName: user.firstName ?? user.FirstName ?? '',
+  lastName: user.lastName ?? user.LastName ?? '',
+  fullName: user.fullName ?? user.FullName ?? `${user.firstName ?? user.FirstName ?? ''} ${user.lastName ?? user.LastName ?? ''}`.trim(),
+  role: user.role ?? user.Role,
+  department: user.department ?? user.Department ?? 'Computing',
+  isActive: user.isActive ?? user.IsActive ?? false,
+});
+
+export default function useAuth({ loadUsers = false, search = '', roleFilter = '' } = {}) {
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(loadUsers);
   const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
   const navigate = useNavigate();
   const setAuth = useAuthStore((state) => state.setAuth);
 
-  const updateUserStatus = useCallback(async (id, isActive) => {
+  const refreshUsers = useCallback(async () => {
+    setIsLoading(true);
     setError('');
+    try {
+      const params = {};
+      const trimmedSearch = search.trim();
+      if (trimmedSearch) params.email = trimmedSearch;
+      if (roleFilter && roleFilter !== 'All Roles') params.role = roleFilter;
+
+      const response = await apiClient.get('/auth', { params });
+      const payload = response.data ?? [];
+      const records = Array.isArray(payload) ? payload : payload.items ?? [];
+      setUsers(records.map(normalizeUser));
+    } catch (requestError) {
+      setError(requestError.response?.data?.message ?? 'Unable to load users from the API.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [search, roleFilter]);
+
+  const updateUserStatus = useCallback(async (id, isActive) => {
+    setActionError('');
     try {
       await apiClient.post(`/auth/${id}/${isActive ? 'activate' : 'deactivate'}`);
       setUsers((current) => current.map((user) => (user.id === id ? { ...user, isActive } : user)));
     } catch (requestError) {
-      setError(requestError.response?.data?.message ?? 'Unable to update user status.');
+      setActionError(requestError.response?.data?.message ?? 'Unable to update user status.');
+      throw requestError;
+    }
+  }, []);
+
+  const createUser = useCallback(async (payload) => {
+    setActionError('');
+    try {
+      const response = await apiClient.post('/auth/register', payload);
+      const created = normalizeUser(response.data);
+      setUsers((current) => [created, ...current]);
+      return created;
+    } catch (requestError) {
+      const message = requestError.response?.data?.message
+        ?? requestError.response?.data?.errors
+        ?? requestError.response?.data
+        ?? 'Unable to create user.';
+      setActionError(typeof message === 'string' ? message : 'Unable to create user.');
+      throw requestError;
+    }
+  }, []);
+
+  const updateUser = useCallback(async (id, payload) => {
+    setActionError('');
+    try {
+      const response = await apiClient.put(`/auth/${id}`, payload);
+      // The server response is the source of truth when it comes back complete, but
+      // an empty/partial body (e.g. an older API build returning 204 No Content) must
+      // never blank out a row - fall back to what we just submitted, then to what
+      // was already on screen, so the table never regresses to empty fields.
+      const server = response.data && typeof response.data === 'object' ? normalizeUser(response.data) : null;
+
+      let mergedUser = null;
+      setUsers((current) => current.map((user) => {
+        if (user.id !== id) return user;
+        const firstName = server?.firstName || payload.firstName || user.firstName;
+        const lastName = server?.lastName || payload.lastName || user.lastName;
+        mergedUser = {
+          ...user,
+          firstName,
+          lastName,
+          fullName: server?.fullName || `${firstName} ${lastName}`.trim(),
+          role: server?.role || payload.role || user.role,
+          email: server?.email || user.email,
+          isActive: server ? server.isActive : user.isActive,
+        };
+        return mergedUser;
+      }));
+      return mergedUser;
+    } catch (requestError) {
+      const message = requestError.response?.data?.message ?? 'Unable to update user.';
+      setActionError(message);
+      throw requestError;
     }
   }, []);
 
   useEffect(() => {
     if (!loadUsers) return undefined;
     let active = true;
-    const loadUsersFromApi = async () => {
-      setIsLoading(true);
-      try {
-        const response = await apiClient.get('/auth');
-        const payload = response.data ?? [];
-        const records = Array.isArray(payload) ? payload : payload.items ?? [];
-        if (active) {
-          setUsers(records.map((user) => ({
-            ...user,
-            id: user.id ?? user.Id,
-            email: user.email ?? user.Email ?? '',
-            fullName: user.fullName ?? user.FullName ?? `${user.firstName ?? user.FirstName ?? ''} ${user.lastName ?? user.LastName ?? ''}`.trim(),
-            role: user.role ?? user.Role,
-            department: user.department ?? user.Department ?? 'Computing',
-            isActive: user.isActive ?? user.IsActive ?? false,
-          })));
-        }
-      } catch (requestError) {
-        if (active) setError(requestError.response?.data?.message ?? 'Unable to load users from the API.');
-      } finally {
-        if (active) setIsLoading(false);
-      }
+
+    const timeoutId = setTimeout(async () => {
+      if (!active) return;
+      await refreshUsers();
+    }, search ? 300 : 0);
+
+    return () => {
+      active = false;
+      clearTimeout(timeoutId);
     };
-    loadUsersFromApi();
-    return () => { active = false; };
-  }, [loadUsers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadUsers, search, roleFilter]);
 
   const login = useCallback(async (email, password) => {
     setIsLoading(true);
@@ -57,17 +129,15 @@ export default function useAuth({ loadUsers = false } = {}) {
     try {
       const response = await apiClient.post('/auth/login', { email, password });
       const token = response.data?.accessToken ?? response.data?.token ?? null;
+      const refreshToken = response.data?.refreshToken ?? null;
       const user = response.data?.user ?? response.data ?? null;
-
-      console.log('[Auth Debug] raw login response', response?.data);
-      console.log('[Auth Debug] user payload', user);
-      console.log('[Auth Debug] token payload', token);
 
       if (!token) {
         throw new Error('Token not returned by API');
       }
 
-      setAuth(user, token);
+      setAuth(user, token, refreshToken);
+      scheduleTokenRefresh(token);
 
       const role = user?.role ?? user?.Role ?? null;
       const normalizedRole = String(role ?? '').toLowerCase();
@@ -78,13 +148,9 @@ export default function useAuth({ loadUsers = false } = {}) {
 
       const targetPath = isDepartmentHead ? '/admin/users' : '/curriculum';
 
-      console.log('[Auth Debug] resolved role', role);
-      console.log('[Auth Debug] target path', targetPath);
-
       navigate(targetPath, { replace: true });
       return response.data;
     } catch (requestError) {
-      console.error('[Auth Debug] login failed', requestError);
       const msg =
         requestError?.response?.data?.message ||
         requestError?.message ||
@@ -100,7 +166,11 @@ export default function useAuth({ loadUsers = false } = {}) {
     users,
     isLoading,
     error,
+    actionError,
     login,
+    createUser,
+    updateUser,
+    refreshUsers,
     activateUser: (id) => updateUserStatus(id, true),
     deactivateUser: (id) => updateUserStatus(id, false),
   };
