@@ -5,7 +5,7 @@ const FloatingChatWidget = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  if (location.pathname === '/chat' || location.pathname.startsWith('/dashboard')) {
+  if (location.pathname !== '/curriculum') {
     return null;
   }
 
