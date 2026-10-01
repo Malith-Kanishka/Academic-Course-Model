@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 /* ─── Constants ─────────────────────────────────────────────────────────── */
 const AI_BASE = 'http://localhost:8000';
@@ -29,6 +31,7 @@ const STRINGS = {
     pdfLoaded:      (name, n) => `📄 **${name}** uploaded — ${n} context chunk${n !== 1 ? 's' : ''} extracted.`,
     typing:         'Academic Intelligence is typing…',
     deleteSession:  'Delete session',
+    loadingSession: 'Loading conversation…',
   },
   si: {
     newChat:        '+ නව සංවාදය',
@@ -54,6 +57,7 @@ const STRINGS = {
     pdfLoaded:      (name, n) => `📄 **${name}** ඇමිණිණි — සන්දර්භ කොටස් ${n}ක් ලබා ගන්නා ලදී.`,
     typing:         'ශාස්ත්‍රීය බුද්ධිය ටයිප් කරමින් සිටී…',
     deleteSession:  'සංවාදය මකන්න',
+    loadingSession: 'සංවාදය පූරණය වෙමින්…',
   },
 };
 
@@ -74,6 +78,10 @@ const api = {
   sessions:      () => fetch(`${AI_BASE}/api/ai/rag/sessions`).then(r => r.json()),
   session:       (id) => fetch(`${AI_BASE}/api/ai/rag/sessions/${id}`).then(r => r.json()),
   deleteSession: (id) => fetch(`${AI_BASE}/api/ai/rag/sessions/${id}`, { method: 'DELETE' }),
+  deleteDocument: (sessionId, documentId) => fetch(
+    `${AI_BASE}/api/ai/rag/sessions/${sessionId}/documents/${documentId}`,
+    { method: 'DELETE' },
+  ),
   chat:          (body) => fetch(`${AI_BASE}/api/ai/rag/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -96,11 +104,13 @@ const ChatWorkspace = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput]       = useState('');
   const [activeId, setActiveId] = useState(null);
+  const [loadingSessionId, setLoadingSessionId] = useState(null);
   const [isSending, setIsSending]     = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [chunks, setChunks]           = useState([]);
+  const [attachedDoc, setAttachedDoc] = useState(null);
   const messagesEndRef = useRef(null);
   const fileRef        = useRef(null);
+  const selectionRequestRef = useRef(0);
 
   const t = STRINGS[lang];
 
@@ -121,32 +131,65 @@ const ChatWorkspace = () => {
   /* ── select session ─────────────────────────────────────────────────────── */
   const selectSession = async (s) => {
     if (s.id === activeId) return;
+    const requestId = ++selectionRequestRef.current;
+    setActiveId(s.id);
+    setMessages([]);
+    setInput('');
+    setAttachedDoc(null);
+    setLoadingSessionId(s.id);
     try {
       const full = await api.session(s.id);
-      setActiveId(full.id);
+      if (selectionRequestRef.current !== requestId) return;
       setMessages(
         (full.messages ?? []).map(m => ({
           sender:  m.sender ?? m.role ?? 'user',
           content: m.content ?? '',
         }))
       );
-    } catch (e) { console.error(e); }
+      setInput('');
+      const lastDocument = full.documents?.[full.documents.length - 1];
+      setAttachedDoc(lastDocument ? {
+        id: lastDocument.id,
+        session_id: full.id,
+        filename: lastDocument.filename,
+        extracted_text: lastDocument.extracted_text,
+      } : null);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      if (selectionRequestRef.current === requestId) setLoadingSessionId(null);
+    }
   };
 
   /* ── new chat ───────────────────────────────────────────────────────────── */
   const newChat = () => {
+    selectionRequestRef.current += 1;
+    setLoadingSessionId(null);
     setActiveId(null);
     setMessages([]);
     setInput('');
-    setChunks([]);
+    setAttachedDoc(null);
   };
 
   /* ── delete session ─────────────────────────────────────────────────────── */
   const deleteSession = async (e, id) => {
     e.stopPropagation();
-    await api.deleteSession(id);
+    const removedSession = sessions.find(session => session.id === id);
+    setSessions(current => current.filter(session => session.id !== id));
     if (activeId === id) newChat();
-    refreshSessions();
+    try {
+      const response = await api.deleteSession(id);
+      if (!response.ok) throw new Error(`Unable to delete session (${response.status})`);
+    } catch (error) {
+      console.error(error);
+      if (removedSession) {
+        setSessions(current => current.some(session => session.id === id)
+          ? current
+          : [removedSession, ...current]);
+      }
+    } finally {
+      refreshSessions();
+    }
   };
 
   /* ── send message ───────────────────────────────────────────────────────── */
@@ -157,12 +200,16 @@ const ChatWorkspace = () => {
     setMessages(prev => [...prev, { sender: 'user', content: query }]);
     setInput('');
     setIsSending(true);
+    const document = attachedDoc;
+    setAttachedDoc(null);
 
     try {
       const res = await api.chat({
         query,
         history:        [],
         session_id:     activeId ?? '',
+        document_context: document?.extracted_text ?? '',
+        document_filename: document?.filename ?? '',
       });
 
       if (!res.ok) {
@@ -171,14 +218,11 @@ const ChatWorkspace = () => {
       }
 
       const data = await res.json();
+      setActiveId(data.id ?? data.session_id);
       setMessages(prev => [
         ...prev,
         { sender: 'assistant', content: data.response ?? '' },
       ]);
-
-      if (data.session_id && data.session_id !== activeId) {
-        setActiveId(data.session_id);
-      }
 
       refreshSessions();
     } catch (err) {
@@ -202,16 +246,16 @@ const ChatWorkspace = () => {
       const res = await api.uploadPdf(file, activeId);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      const c = data.chunks ?? [];
-      setChunks(c);
       if (data.session_id && data.session_id !== activeId) {
         setActiveId(data.session_id);
-        refreshSessions();
       }
-      setMessages(prev => [
-        ...prev,
-        { sender: 'assistant', content: t.pdfLoaded(file.name, c.length) },
-      ]);
+      setAttachedDoc({
+        id: data.document_id,
+        session_id: data.session_id,
+        filename: data.filename || file.name,
+        extracted_text: data.extracted_text || data.text || '',
+      });
+      refreshSessions();
     } catch (err) {
       setMessages(prev => [
         ...prev,
@@ -219,6 +263,15 @@ const ChatWorkspace = () => {
       ]);
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const clearAttachment = async () => {
+    const document = attachedDoc;
+    setAttachedDoc(null);
+    if (document?.id && document.session_id) {
+      const response = await api.deleteDocument(document.session_id, document.id);
+      if (!response.ok) console.error('Unable to remove the persisted PDF attachment.');
     }
   };
 
@@ -359,7 +412,7 @@ const ChatWorkspace = () => {
           <div style={{ flex: 1, overflowY: 'auto', padding: hasMessages ? '24px 32px' : 0 }}>
 
             {/* ── WELCOME LANDING (shown when no messages) ─────────────── */}
-            {!hasMessages && (
+            {!hasMessages && !loadingSessionId && (
               <div style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
                 justifyContent: 'center', height: '100%', padding: '40px 24px',
@@ -428,6 +481,12 @@ const ChatWorkspace = () => {
               </div>
             )}
 
+            {loadingSessionId && (
+              <div role="status" style={{ padding: '32px', color: '#64748b', fontSize: 13.5 }}>
+                {t.loadingSession}
+              </div>
+            )}
+
             {/* ── MESSAGE THREAD ───────────────────────────────────────── */}
             {hasMessages && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -448,8 +507,8 @@ const ChatWorkspace = () => {
 
                     <div style={{
                       maxWidth: '72%', padding: '12px 16px', borderRadius: 16,
-                      fontSize: 13.5, lineHeight: 1.65, whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
+                      fontSize: 13.5, lineHeight: 1.65,
+                      wordBreak: 'break-word', overflowX: 'auto',
                       ...(m.sender === 'user' ? {
                         background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
                         color: '#fff', borderBottomRightRadius: 4,
@@ -460,7 +519,13 @@ const ChatWorkspace = () => {
                         boxShadow: '0 1px 4px rgba(0,0,0,.04)',
                       }),
                     }}>
-                      {m.content}
+                      {m.sender === 'user' ? m.content : (
+                        <div className="rag-message-markdown">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {m.content.replace(/<br\s*\/?\s*>/gi, '  \n')}
+                          </ReactMarkdown>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -498,27 +563,31 @@ const ChatWorkspace = () => {
             borderTop: '1px solid #e2e8f0', padding: '14px 24px 16px',
             background: '#fff', flexShrink: 0,
           }}>
-            {/* PDF context indicator */}
-            {chunks.length > 0 && (
+            {/* Staged PDF attachment */}
+            {attachedDoc && (
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 marginBottom: 8, fontSize: 11.5, color: '#64748b',
               }}>
                 <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
                   background: '#eff6ff', color: '#2563eb', borderRadius: 6,
-                  padding: '2px 8px', fontWeight: 600,
+                  padding: '5px 8px', fontWeight: 600, maxWidth: '100%',
                 }}>
-                  {t.pdfChunks(chunks.length)}
+                  <span aria-hidden="true">📄</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {attachedDoc.filename}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Remove attachment"
+                    title="Remove attachment"
+                    onClick={clearAttachment}
+                    style={{ border: 0, background: 'transparent', color: 'inherit', cursor: 'pointer', padding: 0 }}
+                  >
+                    ✕
+                  </button>
                 </span>
-                <button
-                  onClick={() => setChunks([])}
-                  style={{
-                    background: 'none', border: 'none', color: '#ef4444',
-                    cursor: 'pointer', fontSize: 11.5, fontWeight: 600, padding: 0,
-                  }}
-                >
-                  {t.clearCtx}
-                </button>
               </div>
             )}
 
@@ -620,6 +689,28 @@ const ChatWorkspace = () => {
         }
         /* sidebar delete btn visible on row hover */
         div[id^="session-item-"]:hover button { opacity: 1 !important; }
+        .rag-message-markdown > :first-child { margin-top: 0; }
+        .rag-message-markdown > :last-child { margin-bottom: 0; }
+        .rag-message-markdown p { margin: 0 0 10px; }
+        .rag-message-markdown h1,
+        .rag-message-markdown h2,
+        .rag-message-markdown h3,
+        .rag-message-markdown h4 { margin: 16px 0 8px; line-height: 1.35; color: inherit; }
+        .rag-message-markdown h1 { font-size: 1.25em; }
+        .rag-message-markdown h2 { font-size: 1.15em; }
+        .rag-message-markdown h3,
+        .rag-message-markdown h4 { font-size: 1.05em; }
+        .rag-message-markdown ul,
+        .rag-message-markdown ol { margin: 6px 0 12px; padding-left: 22px; }
+        .rag-message-markdown li + li { margin-top: 4px; }
+        .rag-message-markdown pre { overflow-x: auto; margin: 10px 0; padding: 12px; border-radius: 8px; background: #0f172a; color: #e2e8f0; }
+        .rag-message-markdown :not(pre) > code { padding: 2px 5px; border-radius: 4px; background: rgba(148,163,184,.2); font-size: .92em; }
+        .rag-message-markdown pre code { padding: 0; background: transparent; }
+        .rag-message-markdown blockquote { margin: 10px 0; padding-left: 12px; border-left: 3px solid #94a3b8; color: #64748b; }
+        .rag-message-markdown table { width: 100%; margin: 10px 0; border-collapse: collapse; font-size: .92em; }
+        .rag-message-markdown th,
+        .rag-message-markdown td { padding: 6px 9px; border: 1px solid #cbd5e1; text-align: left; }
+        .rag-message-markdown th { background: rgba(148,163,184,.16); font-weight: 700; }
       `}</style>
     </div>
   );

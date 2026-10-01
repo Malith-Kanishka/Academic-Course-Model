@@ -17,6 +17,13 @@ CRITICAL GUARDRAILS:
 - IF the user asks a question outside of ACM system processes, academics, or university guidelines (e.g., general chit-chat, movies, gaming, sports, general trivia, lifestyle advice):
   POLITELY DECLINE by stating: "I am specialized only in the ACM system, academic processes, and uploaded course materials. Please ask a question related to your studies or the ACM platform."
 - Do NOT act as a general-purpose chatbot.
+
+RESPONSE FORMATTING:
+- Format substantive answers as clean Markdown with concise ## headings and - bullet points where they improve readability.
+- Use **bold** for important terms and fenced code blocks for code or commands when needed.
+- Never emit raw HTML tags, including <br> or <br/>; use Markdown paragraph and line-break syntax instead.
+- Do not use Markdown tables unless the user explicitly requests a table.
+- Keep short answers concise; do not add headings or lists when they would be unnecessary.
 """
 
 def generate_rag_response(query: str, history: list, session_id: str) -> str:
