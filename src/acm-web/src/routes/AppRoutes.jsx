@@ -8,6 +8,7 @@ import CurriculumPage from '../features/curriculum/pages/CurriculumPage';
 import ApprovalsInboxPage from '../features/approvals_audit/pages/ApprovalsInboxPage';
 import SessionArchivePage from '../features/session_monitor/pages/SessionArchivePage';
 import ProtectedRoute from './ProtectedRoute';
+import ChatWorkspace from '../components/chat/ChatWorkspace';
 
 export default function AppRoutes() {
   return (
@@ -24,6 +25,7 @@ export default function AppRoutes() {
           <Route path="/curriculum" element={<CurriculumPage />} />
           <Route path="/approvals" element={<ApprovalsInboxPage />} />
           <Route path="/sessions" element={<SessionArchivePage />} />
+          <Route path="/chat" element={<ChatWorkspace />} />
         </Route>
       </Route>
 

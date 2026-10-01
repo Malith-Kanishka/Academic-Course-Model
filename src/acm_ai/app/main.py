@@ -7,9 +7,16 @@ POST /api/internal/evaluate-session, running all 4 agents end-to-end; that
 lands once Members 2-4's agents exist. For now this exposes Member 1's two
 Coordinator operations standalone so the agent is testable/runnable today.
 """
+from contextlib import asynccontextmanager
+import logging
+import os
+from typing import Any, Dict, List, Set
+
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from sentence_transformers import SentenceTransformer
+from langchain_groq import ChatGroq
 from pydantic import BaseModel
-from typing import List, Dict, Any, Set
 
 from app.agents.coordinator_agent import SessionCoordinatorAgent
 from app.agents.knowledge_auditor_agent import audit_student_claim
@@ -17,8 +24,63 @@ from app.agents.socratic_adversary_agent import SocraticAdversary
 from app.graph.state import WorkflowState
 from app.schemas.audit_schemas import FactAuditRequest, FactAuditResultDTO
 from app.schemas.session_schemas import NextTurnDirectiveDTO, SessionAgendaDTO, SessionInitRequest
+from app.routers.rag import router as rag_router
 
-app = FastAPI(title="ACM AI Microservice", version="1.0")
+# Setup logger for Uvicorn terminal output
+logger = logging.getLogger("uvicorn.error")
+
+# Import RAG helper if present
+try:
+    from app.rag.retriever import get_rag_context
+except ImportError:
+    def get_rag_context(query: str) -> str:
+        return ""
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan event handler to pre-load and verify Groq LLM before startup completes."""
+    logger.info("Initializing Groq LLM...")
+    groq_api_key = os.getenv("GROQ_API_KEY")
+    
+    if not groq_api_key:
+        logger.warning("GROQ_API_KEY environment variable is not set!")
+    else:
+        try:
+            # Pre-instantiate and warm up Groq model
+            model_name = os.getenv("GROQ_MODEL_NAME", "llama-3.3-70b-versatile")
+            groq_llm = ChatGroq(groq_api_key=groq_api_key, model_name=model_name)
+            
+            # Attach to socratic_agent if supported
+            if hasattr(socratic_agent, "llm"):
+                socratic_agent.llm = groq_llm
+
+            logger.info(f"Groq LLM ({model_name}) loaded successfully.")
+        except Exception as e:
+            logger.error(f"Failed to load Groq LLM: {e}")
+
+    try:
+        logger.info("Initializing SentenceTransformer embedding model...")
+        SentenceTransformer("all-MiniLM-L6-v2")
+        logger.info("Embedding model loaded successfully.")
+    except Exception as e:
+        logger.error(f"Failed to load embedding model: {e}")
+
+    yield
+    logger.info("Shutting down ACM AI Microservice...")
+
+
+app = FastAPI(title="ACM AI Microservice", version="1.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(rag_router)
 
 # Initialize the AI agents
 _coordinator = SessionCoordinatorAgent()
@@ -28,6 +90,11 @@ socratic_agent = SocraticAdversary()
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/")
+async def root():
+    return {"status": "online", "message": "ACM AI Inference Engine is running successfully!"}
 
 
 @app.post("/api/internal/coordinator/plan-session", response_model=SessionAgendaDTO)
@@ -45,16 +112,32 @@ def next_turn(state: WorkflowState) -> NextTurnDirectiveDTO:
     except Exception as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
+
+# --- Request Models ---
+
 class AuditRequest(BaseModel):
     completed_topics: List[str]
     target_topic: str
     rules_db: List[Dict[str, Any]]
+
 
 class AStarFilterRequest(BaseModel):
     current_node: str
     potential_neighbors: List[str]
     completed_topics: List[str]
     rules_db: List[Dict[str, Any]]
+
+
+class DialogueRequest(BaseModel):
+    session_id: str
+    student_text: str
+
+
+class AIResponse(BaseModel):
+    ai_text: str
+
+
+# --- Knowledge Inference Engine ---
 
 class KnowledgeBaseInferenceEngine:
     def __init__(self):
@@ -78,18 +161,16 @@ class KnowledgeBaseInferenceEngine:
                 premises = rule["premises"]
                 conclusion = rule["conclusion"]
 
-
                 if all(p in inferred for p in premises) and conclusion not in inferred:
                     inferred.add(conclusion)
                     newly_inferred = True
 
         return inferred
 
-@app.get("/")
-async def root():
-    return {"status": "online", "message": "ACM AI Inference Engine is running successfully!"}
 
-@app.post("/api/ai/audit")
+# --- Endpoints ---
+
+@app.post("/api/ai/audit-topic")
 async def audit_topic_endpoint(request: AuditRequest):
     try:
         engine = KnowledgeBaseInferenceEngine()
@@ -103,7 +184,6 @@ async def audit_topic_endpoint(request: AuditRequest):
         derived_facts = engine.forward_chain()
         is_valid = request.target_topic in derived_facts
 
-
         return {
             "target_topic": request.target_topic,
             "is_unlocked": is_valid,
@@ -114,27 +194,24 @@ async def audit_topic_endpoint(request: AuditRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-
 @app.post("/api/ai/audit", response_model=FactAuditResultDTO)
 async def audit_endpoint(request: FactAuditRequest):
     return audit_student_claim(request)
 
-# Define the JSON structure we expect from the C# API
-class DialogueRequest(BaseModel):
-    session_id: str
-    student_text: str
-
-# Define the JSON structure we will send back to the C# API
-class AIResponse(BaseModel):
-    ai_text: str
 
 @app.post("/api/ai/process", response_model=AIResponse)
 async def process_dialogue(request: DialogueRequest):
     try:
-        # Pass the text to your LangChain agent
-        response_text = socratic_agent.generate_response(request.student_text)
+        context = get_rag_context(request.student_text)
+
+        if hasattr(socratic_agent, "generate_response_with_rag"):
+            response_text = socratic_agent.generate_response_with_rag(
+                student_text=request.student_text,
+                context=context
+            )
+        else:
+            response_text = socratic_agent.generate_response(request.student_text)
 
         return AIResponse(ai_text=response_text)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
