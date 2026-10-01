@@ -23,7 +23,7 @@ namespace ACM.Backend.Services
         {
             try
             {
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email && u.IsActive);
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
 
                 if (user == null)
                 {
@@ -35,6 +35,14 @@ namespace ACM.Backend.Services
                 {
                     _logger.LogWarning($"Failed login attempt for user: {request.Email}");
                     return new AuthResponseDto { Success = false, Message = "Invalid email or password" };
+                }
+
+                // Only reveal deactivation once the password has already been verified,
+                // so probing emails alone can't be used to enumerate account status.
+                if (!user.IsActive)
+                {
+                    _logger.LogWarning($"Login attempt for deactivated user: {request.Email}");
+                    return new AuthResponseDto { Success = false, Message = "Your account has been deactivated. Contact your Department Head." };
                 }
 
                 var accessToken = _jwtTokenGenerator.GenerateAccessToken(user);
@@ -75,9 +83,13 @@ namespace ACM.Backend.Services
         {
             try
             {
+                // Note: rt.IsValid is a C#-only computed property (not a mapped column) -
+                // EF Core/Npgsql can't translate it to SQL, so the underlying conditions
+                // (IsRevoked, ExpiresAt) are inlined here instead.
+                var now = DateTime.UtcNow;
                 var storedRefreshToken = await _context.RefreshTokens
                     .Include(rt => rt.User)
-                    .FirstOrDefaultAsync(rt => rt.Token == refreshToken && rt.IsValid);
+                    .FirstOrDefaultAsync(rt => rt.Token == refreshToken && !rt.IsRevoked && rt.ExpiresAt > now);
 
                 if (storedRefreshToken == null)
                 {
@@ -141,6 +153,7 @@ namespace ACM.Backend.Services
 
                 var user = new User
                 {
+                    ShortId = await GenerateShortIdAsync(request.Role),
                     Email = request.Email,
                     FirstName = request.FirstName,
                     LastName = request.LastName,
@@ -198,9 +211,27 @@ namespace ACM.Backend.Services
             return user == null ? null : MapToUserResponseDto(user);
         }
 
-        public async Task<IEnumerable<UserResponseDto>> GetAllUsersAsync()
+        public async Task<IEnumerable<UserResponseDto>> GetAllUsersAsync(string? email = null, UserRole? role = null, bool? isActive = null)
         {
-            var users = await _context.Users.ToListAsync();
+            var query = _context.Users.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                var pattern = email.Trim().ToLower();
+                query = query.Where(u => u.Email.ToLower().Contains(pattern));
+            }
+
+            if (role.HasValue)
+            {
+                query = query.Where(u => u.Role == role.Value);
+            }
+
+            if (isActive.HasValue)
+            {
+                query = query.Where(u => u.IsActive == isActive.Value);
+            }
+
+            var users = await query.OrderBy(u => u.Email).ToListAsync();
             return users.Select(MapToUserResponseDto);
         }
 
@@ -210,20 +241,24 @@ namespace ACM.Backend.Services
             return users.Select(MapToUserResponseDto);
         }
 
-        public async Task<bool> UpdateUserAsync(Guid userId, string firstName, string lastName)
+        public async Task<UserResponseDto?> UpdateUserAsync(Guid userId, string firstName, string lastName, UserRole? role = null)
         {
             var user = await _context.Users.FindAsync(userId);
-            if (user == null) return false;
+            if (user == null) return null;
 
             user.FirstName = firstName;
             user.LastName = lastName;
+            if (role.HasValue)
+            {
+                user.Role = role.Value;
+            }
             user.UpdatedAt = DateTime.UtcNow;
 
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
 
             _logger.LogInformation($"User updated: {user.Email}");
-            return true;
+            return MapToUserResponseDto(user);
         }
 
         public async Task<bool> DeactivateUserAsync(Guid userId)
@@ -267,6 +302,12 @@ namespace ACM.Backend.Services
                 return false;
             }
 
+            if (ValidatePasswordHash(newPassword, user.PasswordHash))
+            {
+                _logger.LogWarning($"Password change rejected - new password same as current for user: {user.Email}");
+                throw new InvalidOperationException("New password must be different from the current password");
+            }
+
             user.PasswordHash = HashPassword(newPassword);
             user.UpdatedAt = DateTime.UtcNow;
 
@@ -298,6 +339,32 @@ namespace ACM.Backend.Services
         }
 
         // Helper methods
+
+        // Generates the next role-prefixed short ID (e.g. "ST001", "ST002", ...) by scanning
+        // the highest existing number for that role and incrementing it. Registration in this
+        // app is an infrequent, admin-driven action (one Department Head adding members one at
+        // a time), so a simple read-then-write is sufficient without a dedicated sequence/lock.
+        private async Task<string> GenerateShortIdAsync(UserRole role)
+        {
+            var prefix = role.ShortIdPrefix();
+
+            var existingShortIds = await _context.Users
+                .Where(u => u.Role == role && u.ShortId != null && u.ShortId.StartsWith(prefix))
+                .Select(u => u.ShortId!)
+                .ToListAsync();
+
+            var maxNumber = 0;
+            foreach (var shortId in existingShortIds)
+            {
+                if (int.TryParse(shortId.Substring(prefix.Length), out var number))
+                {
+                    maxNumber = Math.Max(maxNumber, number);
+                }
+            }
+
+            return $"{prefix}{(maxNumber + 1):D3}";
+        }
+
         private string HashPassword(string password)
         {
             return BCrypt.Net.BCrypt.HashPassword(password);
@@ -313,6 +380,7 @@ namespace ACM.Backend.Services
             return new UserResponseDto
             {
                 Id = user.Id,
+                ShortId = user.ShortId ?? "—",
                 Email = user.Email,
                 FirstName = user.FirstName,
                 LastName = user.LastName,

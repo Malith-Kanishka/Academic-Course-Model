@@ -1,10 +1,7 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_mode_controller.dart';
 import '../state/auth_controller.dart';
@@ -25,8 +22,7 @@ class ProfileScreen extends StatelessWidget {
         : user['name']?.toString() ?? 'Academic explorer';
     final email = user['email']?.toString() ?? 'Email not available';
     final role = user['role']?.toString() ?? 'Authenticated account';
-    final userId = (user['id'] ?? user['userId'] ?? user['sub'])?.toString() ??
-        'Unavailable';
+    final shortId = user['shortId']?.toString() ?? '';
     final initials = name
         .split(RegExp(r'\s+'))
         .where((part) => part.isNotEmpty)
@@ -72,60 +68,47 @@ class ProfileScreen extends StatelessWidget {
                               .bodySmall
                               ?.copyWith(color: AppTheme.textMuted)),
                       const SizedBox(height: 9),
-                      _RoleBadge(role: role),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          _RoleBadge(role: role),
+                          if (shortId.isNotEmpty)
+                            Text('ID: $shortId',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(color: AppTheme.textMuted)),
+                        ],
+                      ),
                     ],
                   ),
+                ),
+                IconButton(
+                  tooltip: 'Edit name',
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (_) => _EditNameDialog(
+                      firstName: firstName,
+                      lastName: lastName,
+                    ),
+                  ),
+                  icon: const Icon(Icons.edit_outlined),
                 ),
               ],
             ),
           ),
         ),
         const SizedBox(height: 24),
-        Text('System information',
-            style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 10),
-        _InfoCard(
-          icon: Icons.verified_user_outlined,
-          label: 'Active session',
-          value: auth.isAuthenticated ? 'Signed in' : 'No active session',
-          color: AppTheme.emerald,
-        ),
-        const SizedBox(height: 9),
-        _InfoCard(
-          icon: Icons.admin_panel_settings_outlined,
-          label: 'Role privileges',
-          value: _privileges(role),
-          color: AppTheme.amber,
-        ),
-        const SizedBox(height: 9),
-        _InfoCard(
-          icon: Icons.dns_outlined,
-          label: 'Connected backend',
-          value: ApiConstants.baseUrl,
-          color: AppTheme.primaryBlue,
-        ),
-        const SizedBox(height: 24),
-        Text('Preferences & security',
-            style: Theme.of(context).textTheme.titleMedium),
+        Text('Preferences', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 10),
         Card(
-          child: Column(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.key_rounded),
-                title: const Text('Security & tokens'),
-                subtitle: Text('User ID: $userId'),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => _showSecurity(context, auth.accessToken),
-              ),
-              const Divider(height: 1, indent: 16, endIndent: 16),
-              SwitchListTile(
-                secondary: const Icon(Icons.dark_mode_outlined),
-                title: const Text('Dark mode'),
-                value: themeMode.isDark,
-                onChanged: (_) => themeMode.toggle(),
-              ),
-            ],
+          child: SwitchListTile(
+            secondary: const Icon(Icons.dark_mode_outlined),
+            title: const Text('Dark mode'),
+            value: themeMode.isDark,
+            onChanged: (_) => themeMode.toggle(),
           ),
         ),
         const SizedBox(height: 22),
@@ -142,68 +125,6 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-
-  static String _privileges(String role) {
-    final normalized = role.toLowerCase();
-    if (normalized.contains('head') || normalized.contains('admin')) {
-      return 'Curriculum management and evaluation approvals';
-    }
-    if (normalized.contains('lecturer')) {
-      return 'Teaching and curriculum access';
-    }
-    if (normalized.contains('student')) {
-      return 'Learning sessions and progress';
-    }
-    return 'Standard authenticated access';
-  }
-
-  static void _showSecurity(BuildContext context, String? token) {
-    var expiresAt = 'Not available';
-    if (token != null) {
-      try {
-        final claims = jsonDecode(utf8.decode(base64Url.decode(
-          base64Url.normalize(token.split('.')[1]),
-        ))) as Map<String, dynamic>;
-        final expiry = claims['exp'];
-        if (expiry is num) {
-          expiresAt = DateTime.fromMillisecondsSinceEpoch(
-            expiry.toInt() * 1000,
-            isUtc: true,
-          ).toLocal().toString();
-        }
-      } catch (_) {
-        expiresAt = 'Token claims unavailable';
-      }
-    }
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Security & tokens'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Access token is stored securely on this device.'),
-            const SizedBox(height: 14),
-            Text('Status: ${token == null ? 'Unavailable' : 'Present'}'),
-            const SizedBox(height: 6),
-            Text('Expires: $expiresAt'),
-            const SizedBox(height: 10),
-            Text('Token value is hidden for your security.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: AppTheme.textMuted)),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close')),
-        ],
-      ),
     );
   }
 }
@@ -243,29 +164,103 @@ class _RoleBadge extends StatelessWidget {
   }
 }
 
-class _InfoCard extends StatelessWidget {
-  const _InfoCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
+class _EditNameDialog extends StatefulWidget {
+  const _EditNameDialog({required this.firstName, required this.lastName});
 
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
+  final String firstName;
+  final String lastName;
 
   @override
-  Widget build(BuildContext context) => Card(
-        child: ListTile(
-          leading: Icon(icon, color: color),
-          title: Text(label, style: Theme.of(context).textTheme.labelMedium),
-          subtitle: Text(value,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: AppTheme.textMuted)),
+  State<_EditNameDialog> createState() => _EditNameDialogState();
+}
+
+class _EditNameDialogState extends State<_EditNameDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final _firstNameController =
+      TextEditingController(text: widget.firstName);
+  late final _lastNameController =
+      TextEditingController(text: widget.lastName);
+
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final success = await context.read<AuthController>().updateProfile(
+          firstName: _firstNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+        );
+    if (!mounted) return;
+    if (success) {
+      Navigator.of(context).pop();
+    } else {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<AuthController>();
+    return AlertDialog(
+      title: const Text('Edit name'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (controller.profileError != null) ...[
+              Text(controller.profileError!,
+                  style: const TextStyle(color: AppTheme.danger)),
+              const SizedBox(height: 12),
+            ],
+            TextFormField(
+              controller: _firstNameController,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'First name'),
+              validator: (value) {
+                final trimmed = value?.trim() ?? '';
+                if (trimmed.isEmpty) return 'First name is required';
+                if (trimmed.length > 100) return 'First name is too long';
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _lastNameController,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'Last name'),
+              validator: (value) {
+                final trimmed = value?.trim() ?? '';
+                if (trimmed.isEmpty) return 'Last name is required';
+                if (trimmed.length > 100) return 'Last name is too long';
+                return null;
+              },
+            ),
+          ],
         ),
-      );
+      ),
+      actions: [
+        TextButton(
+          onPressed: controller.isUpdatingProfile
+              ? null
+              : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: controller.isUpdatingProfile ? null : _save,
+          child: controller.isUpdatingProfile
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save'),
+        ),
+      ],
+    );
+  }
 }

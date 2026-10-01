@@ -44,6 +44,10 @@ namespace ACM.Backend.Infrastructure.Data
                 .HasIndex(u => u.Email)
                 .IsUnique();
 
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.ShortId)
+                .IsUnique();
+
             // User to RefreshToken relationship (One-to-Many)
             modelBuilder.Entity<User>()
                 .HasMany(u => u.RefreshTokens)

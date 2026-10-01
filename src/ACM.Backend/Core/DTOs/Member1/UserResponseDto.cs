@@ -5,6 +5,7 @@ namespace ACM.Backend.Core.DTOs.Member1
     public class UserResponseDto
     {
         public Guid Id { get; set; }
+        public string ShortId { get; set; } = null!;
         public string Email { get; set; } = null!;
         public string FirstName { get; set; } = null!;
         public string LastName { get; set; } = null!;

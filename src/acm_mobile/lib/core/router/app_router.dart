@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../features/admin_users/data/user_management_repository.dart';
+import '../../features/admin_users/screens/user_management_screen.dart';
+import '../../features/admin_users/state/user_management_controller.dart';
 import '../../features/arena/screens/arena_screen.dart';
 import '../../features/arena/data/arena_repository.dart';
 import '../../features/auth/screens/profile_screen.dart';
@@ -85,6 +88,13 @@ abstract final class AppRouter {
             builder: (context, state) => ChangeNotifierProvider(
               create: (_) => RemediationController(RemediationService()),
               child: const FeedbackDashboardScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/users',
+            builder: (context, state) => ChangeNotifierProvider(
+              create: (_) => UserManagementController(UserManagementRepository()),
+              child: const UserManagementScreen(),
             ),
           ),
           GoRoute(

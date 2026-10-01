@@ -16,6 +16,8 @@ class DashboardScreen extends StatelessWidget {
         'Academic explorer';
     final role = user['role']?.toString() ?? 'Authenticated account';
     final initials = firstName.isEmpty ? 'A' : firstName[0].toUpperCase();
+    final isDepartmentHead = role.toLowerCase().contains('head') ||
+        role.toLowerCase().contains('admin');
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
       children: [
@@ -65,50 +67,54 @@ class DashboardScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 22),
-        Text('At a glance', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 11),
-        const Row(
-          children: [
-            Expanded(
-              child: _MetricTile(
-                icon: Icons.fact_check_outlined,
-                label: 'Review queue',
-                value: 'Ready',
-                color: AppTheme.amber,
+        if (!isDepartmentHead) ...[
+          Text('At a glance', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 11),
+          const Row(
+            children: [
+              Expanded(
+                child: _MetricTile(
+                  icon: Icons.fact_check_outlined,
+                  label: 'Review queue',
+                  value: 'Ready',
+                  color: AppTheme.amber,
+                ),
               ),
-            ),
-            SizedBox(width: 9),
-            Expanded(
-              child: _MetricTile(
-                icon: Icons.layers_outlined,
-                label: 'Learning areas',
-                value: '02',
-                color: AppTheme.primaryBlue,
+              SizedBox(width: 9),
+              Expanded(
+                child: _MetricTile(
+                  icon: Icons.layers_outlined,
+                  label: 'Learning areas',
+                  value: '02',
+                  color: AppTheme.primaryBlue,
+                ),
               ),
-            ),
-            SizedBox(width: 9),
-            Expanded(
-              child: _MetricTile(
-                icon: Icons.verified_user_outlined,
-                label: 'Access',
-                value: 'Active',
-                color: AppTheme.emerald,
+              SizedBox(width: 9),
+              Expanded(
+                child: _MetricTile(
+                  icon: Icons.verified_user_outlined,
+                  label: 'Access',
+                  value: 'Active',
+                  color: AppTheme.emerald,
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
+            ],
+          ),
+          const SizedBox(height: 24),
+        ],
         Text('Your workspace', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 11),
-        _WorkspaceTile(
-          icon: Icons.school_rounded,
-          title: 'Course workspace',
-          subtitle: 'Topics, sessions, and learning progress in one place.',
-          tag: 'LEARNING',
-          color: AppTheme.primaryBlue,
-          onTap: () => context.go('/courses'),
-        ),
-        const SizedBox(height: 11),
+        if (!isDepartmentHead) ...[
+          _WorkspaceTile(
+            icon: Icons.school_rounded,
+            title: 'Course workspace',
+            subtitle: 'Topics, sessions, and learning progress in one place.',
+            tag: 'LEARNING',
+            color: AppTheme.primaryBlue,
+            onTap: () => context.go('/courses'),
+          ),
+          const SizedBox(height: 11),
+        ],
         _WorkspaceTile(
           icon: Icons.fact_check_rounded,
           title: 'Evaluation approvals',
@@ -117,6 +123,17 @@ class DashboardScreen extends StatelessWidget {
           color: AppTheme.emerald,
           onTap: () => context.go('/evaluations'),
         ),
+        if (isDepartmentHead) ...[
+          const SizedBox(height: 11),
+          _WorkspaceTile(
+            icon: Icons.manage_accounts_rounded,
+            title: 'User management',
+            subtitle: 'Add, edit, and activate or deactivate department members.',
+            tag: 'GOVERNANCE',
+            color: AppTheme.amber,
+            onTap: () => context.go('/admin/users'),
+          ),
+        ],
       ],
     );
   }
