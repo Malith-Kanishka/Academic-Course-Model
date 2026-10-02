@@ -30,6 +30,14 @@ namespace ACM.Backend.Services
         {
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSecret));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var canonicalRole = user.Role switch
+            {
+                UserRole.DepartmentHead => "Admin",
+                UserRole.Lecturer => "Professor",
+                UserRole.Teacher => "TA",
+                UserRole.Student => "Student",
+                _ => user.Role.ToString()
+            };
 
             var claims = new List<Claim>
             {
@@ -37,6 +45,7 @@ namespace ACM.Backend.Services
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.Name, user.FullName),
                 new Claim("role", user.Role.ToString()),
+                new Claim(ClaimTypes.Role, canonicalRole),
                 new Claim("firstName", user.FirstName),
                 new Claim("lastName", user.LastName)
             };

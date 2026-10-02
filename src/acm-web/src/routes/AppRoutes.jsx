@@ -18,15 +18,21 @@ export default function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
 
       <Route element={<Layout />}>
-        <Route element={<ProtectedRoute allowedRoles={['DepartmentHead', 'DeptHead', 'Admin', 0]} />}>
+        <Route element={<ProtectedRoute allowedRoles={['Admin']} />}>
           <Route path="/admin/users" element={<AdminUsersPage />} />
         </Route>
 
-        <Route element={<ProtectedRoute allowedRoles={['DepartmentHead', 'DeptHead', 'Admin', 'Lecturer', 'Teacher', 'Student', 0, 1, 2, 3]} />}>
+        <Route element={<ProtectedRoute allowedRoles={['Admin', 'Professor', 'TA', 'Student']} />}>
           <Route path="/dashboard" element={<OverviewPage />} />
+          <Route path="/overview" element={<OverviewPage />} />
           <Route path="/curriculum" element={<CurriculumPage />} />
-          <Route path="/approvals" element={<ApprovalsInboxPage />} />
-          <Route path="/sessions" element={<SessionArchivePage />} />
+          <Route element={<ProtectedRoute allowedRoles={['Professor', 'Admin']} />}>
+            <Route path="/approvals" element={<ApprovalsInboxPage />} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={['Professor', 'Admin', 'TA']} />}>
+            <Route path="/sessions" element={<SessionArchivePage />} />
+            <Route path="/session-monitor" element={<SessionArchivePage />} />
+          </Route>
           <Route path="/chat" element={<ChatWorkspace />} />
         </Route>
       </Route>

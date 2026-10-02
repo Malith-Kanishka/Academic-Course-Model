@@ -22,6 +22,8 @@ import { authService } from '../services/authService';
 import { curriculumService } from '../services/curriculumService';
 import { useAuthStore } from '../store/authStore';
 import { useLanguageStore } from '../store/languageStore';
+import { getUserRole, hasRole } from '../utils/roles';
+import StudentRemedialPlanCard from '../components/common/StudentRemedialPlanCard';
 
 const COPY = {
   en: {
@@ -33,7 +35,7 @@ const COPY = {
     masteryData: 'No mastery report available', remedialData: 'Student plan status is not available', creditsData: 'Credit progress is not available',
     topics: 'topics', modules: 'modules', students: 'students', inReview: 'In the review queue',
     activeModules: 'Active modules', catalog: 'Course progress', catalogSub: 'Explore the current course catalog and continue with an AI-assisted study session.',
-    noModules: 'No modules are available yet.', loading: 'Loading academic data…', retry: 'Retry',
+    noModules: 'No modules are available yet.', noEnrolledModules: 'No enrolled modules are linked to this account.', loading: 'Loading academic data…', retry: 'Retry',
     launch: 'Launch AI Assistant', openCurriculum: 'Open curriculum', completion: 'Completion', progressUnavailable: 'Progress not reported',
     alertTitle: 'AI safety & remedial status', reviewNeeded: (count) => `Action needed: ${count} remedial plan${count === 1 ? '' : 's'} awaiting human review.`,
     clearReviews: 'No pending HITL reviews. New evaluation updates will appear here.', studentPlan: 'Your remedial-plan status is not available from this account yet.',
@@ -60,7 +62,7 @@ const COPY = {
     masteryData: 'ප්‍රවීණතා වාර්තාවක් නොමැත', remedialData: 'ශිෂ්‍ය සැලසුම් තත්ත්වය නොමැත', creditsData: 'ණය ප්‍රගතිය නොමැත',
     topics: 'මාතෘකා', modules: 'මොඩියුල', students: 'සිසුන්', inReview: 'සමාලෝචනය වෙමින්',
     activeModules: 'සක්‍රීය මොඩියුල', catalog: 'පාඨමාලා ප්‍රගතිය', catalogSub: 'පාඨමාලා නාමාවලිය ගවේෂණය කර AI සහාය ඇති අධ්‍යයනයක් අරඹන්න.',
-    noModules: 'තවම මොඩියුල නොමැත.', loading: 'අධ්‍යයන දත්ත පූරණය වෙමින්…', retry: 'නැවත උත්සාහ කරන්න',
+    noModules: 'තවම මොඩියුල නොමැත.', noEnrolledModules: 'මෙම ගිණුමට ලියාපදිංචි මොඩියුල සම්බන්ධ කර නැත.', loading: 'අධ්‍යයන දත්ත පූරණය වෙමින්…', retry: 'නැවත උත්සාහ කරන්න',
     launch: 'AI සහායකය අරඹන්න', openCurriculum: 'විෂයමාලාව විවෘත කරන්න', completion: 'සම්පූර්ණතාව', progressUnavailable: 'ප්‍රගතිය වාර්තා කර නැත',
     alertTitle: 'AI ආරක්ෂාව සහ පුනරීක්ෂණ තත්ත්වය', reviewNeeded: (count) => `අවශ්‍ය ක්‍රියාව: සැලසුම් ${count}ක් මානව සමාලෝචනය බලාපොරොත්තු වේ.`,
     clearReviews: 'මානව සමාලෝචන බලාපොරොත්තුවෙන් නැත. නව යාවත්කාලීන මෙහි පෙන්වනු ඇත.', studentPlan: 'මෙම ගිණුමෙන් ඔබේ සැලසුම් තත්ත්වය ලබාගත නොහැක.',
@@ -85,17 +87,10 @@ const toItems = (payload) => {
   return payload?.items ?? payload?.data ?? payload?.modules ?? [];
 };
 
-const normalizeRole = (value) => {
-  const role = String(value ?? '').trim().toLowerCase().replace(/[\s_-]/g, '');
-  return ({ '0': 'departmenthead', '1': 'lecturer', '2': 'teacher', '3': 'student' })[role] ?? role;
-};
-
 const roleText = (role, t) => ({
   student: t.student,
-  lecturer: t.lecturer,
-  teacher: t.teacher,
-  departmenthead: t.departmentHead,
-  depthead: t.departmentHead,
+  professor: t.lecturer,
+  ta: t.teacher,
   admin: t.admin,
 })[role] ?? t.profileFallback;
 
@@ -147,9 +142,9 @@ export default function OverviewPage() {
   const language = useLanguageStore((state) => state.language);
   const setLanguage = useLanguageStore((state) => state.setLanguage);
   const t = COPY[language] ?? COPY.en;
-  const role = normalizeRole(user?.role ?? user?.Role);
+  const role = getUserRole(user);
   const isStudent = role === 'student';
-  const canReview = ['departmenthead', 'depthead', 'admin', 'lecturer', 'teacher'].includes(role);
+  const canReview = hasRole(user, ['Professor', 'Admin']);
   const [modules, setModules] = useState([]);
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -163,6 +158,12 @@ export default function OverviewPage() {
   const [sessionBusy, setSessionBusy] = useState(false);
   const [sessionError, setSessionError] = useState('');
   const [emailAlerts, setEmailAlerts] = useState(initialEmailPreference);
+  const [activePlans, setActivePlans] = useState([]);
+
+  useEffect(() => {
+    if (!isStudent) return;
+    approvalService.getMyActiveRemedialPlans().then(setActivePlans).catch(() => setActivePlans([]));
+  }, [isStudent]);
 
   useEffect(() => {
     let active = true;
@@ -170,7 +171,7 @@ export default function OverviewPage() {
     setModuleError('');
     setApprovalError('');
 
-    const moduleRequest = curriculumService.getModules()
+    const moduleRequest = curriculumService.getModules({ student: isStudent })
       .then((payload) => { if (active) setModules(toItems(payload)); })
       .catch(() => { if (active) setModuleError('Could not load course modules.'); });
     const approvalRequest = canReview
@@ -184,7 +185,7 @@ export default function OverviewPage() {
     });
 
     return () => { active = false; };
-  }, [canReview, retryCount]);
+  }, [canReview, isStudent, retryCount]);
 
   const activeModules = modules.filter((module) => !['inactive', 'archived', 'disabled'].includes(String(module.status ?? '').toLowerCase()));
   const totalTopics = activeModules.reduce((count, module) => count + (module.topics?.length ?? module.topicCount ?? 0), 0);
@@ -279,6 +280,8 @@ export default function OverviewPage() {
         </div>
       </section>
 
+      {isStudent && activePlans.map((plan) => <StudentRemedialPlanCard key={plan.id} plan={plan} />)}
+
       <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/85 shadow-sm">
         <div className="flex flex-col gap-2 border-b border-slate-200/80 px-5 py-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -316,7 +319,7 @@ export default function OverviewPage() {
               </article>
             );
           })}
-          {!loading && activeModules.length === 0 && <p className="col-span-full py-8 text-center text-sm text-slate-500">{t.noModules}</p>}
+          {!loading && activeModules.length === 0 && <p className="col-span-full py-8 text-center text-sm text-slate-500">{isStudent ? t.noEnrolledModules : t.noModules}</p>}
         </div>
       </section>
 

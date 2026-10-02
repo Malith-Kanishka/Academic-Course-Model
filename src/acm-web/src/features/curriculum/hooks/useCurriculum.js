@@ -10,11 +10,11 @@ export default function useCurriculum() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState('');
 
-  const fetchModules = useCallback(async () => {
+  const fetchModules = useCallback(async ({ student = false } = {}) => {
     setLoading(true);
     setError('');
     try {
-      const data = await curriculumService.getModules();
+      const data = await curriculumService.getModules({ student });
       setModules(data || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not connect to backend server.');

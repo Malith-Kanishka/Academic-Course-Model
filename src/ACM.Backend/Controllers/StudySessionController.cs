@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ACM.Backend.Core.Interfaces;
 using ACM.Backend.Core.DTOs.Member3;
@@ -16,6 +17,15 @@ namespace ACM.Backend.Controllers
         public StudySessionController(ISessionService sessionService)
         {
             _sessionService = sessionService;
+        }
+
+        // GET: api/sessions
+        [HttpGet]
+        [Authorize(Roles = "Professor,Admin,TA")]
+        public async Task<IActionResult> GetAllSessions()
+        {
+            var sessions = await _sessionService.GetAllSessionsAsync();
+            return Ok(sessions);
         }
 
         // POST: api/sessions/start
@@ -45,6 +55,7 @@ namespace ACM.Backend.Controllers
 
         // GET: api/sessions/{id}
         [HttpGet("{id}")]
+        [Authorize(Roles = "Professor,Admin,TA")]
         public async Task<IActionResult> GetSession(Guid id)
         {
             var session = await _sessionService.GetSessionHistoryAsync(id);

@@ -12,6 +12,8 @@ namespace ACM.Backend.Core.Interfaces
         // Returns the AI's text response after processing the student's audio
         Task<string> ProcessStudentAudioAsync(AudioStreamDto dto); 
         
+        /// <summary>Gets session summaries for authorized academic staff monitoring.</summary>
+        Task<IEnumerable<StudySession>> GetAllSessionsAsync();
         Task<StudySession> GetSessionHistoryAsync(Guid sessionId);
     }
 }

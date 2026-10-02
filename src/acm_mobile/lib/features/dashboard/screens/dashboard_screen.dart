@@ -16,8 +16,14 @@ class DashboardScreen extends StatelessWidget {
         'Academic explorer';
     final role = user['role']?.toString() ?? 'Authenticated account';
     final initials = firstName.isEmpty ? 'A' : firstName[0].toUpperCase();
-    final isDepartmentHead = role.toLowerCase().contains('head') ||
-        role.toLowerCase().contains('admin');
+    final normalizedRole = role.toLowerCase();
+    final isDepartmentHead = normalizedRole.contains('head') ||
+        normalizedRole.contains('admin') ||
+        normalizedRole == '0';
+    final canReviewApprovals = isDepartmentHead ||
+        normalizedRole.contains('lecturer') ||
+        normalizedRole.contains('professor') ||
+        normalizedRole == '1';
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
       children: [
@@ -67,7 +73,7 @@ class DashboardScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 22),
-        if (!isDepartmentHead) ...[
+        if (canReviewApprovals) ...[
           Text('At a glance', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 11),
           const Row(
@@ -115,20 +121,22 @@ class DashboardScreen extends StatelessWidget {
           ),
           const SizedBox(height: 11),
         ],
-        _WorkspaceTile(
-          icon: Icons.fact_check_rounded,
-          title: 'Evaluation approvals',
-          subtitle: 'Review human-in-the-loop remedial plans when needed.',
-          tag: 'HUMAN REVIEW',
-          color: AppTheme.emerald,
-          onTap: () => context.go('/evaluations'),
-        ),
+        if (canReviewApprovals)
+          _WorkspaceTile(
+            icon: Icons.fact_check_rounded,
+            title: 'Evaluation approvals',
+            subtitle: 'Review human-in-the-loop remedial plans when needed.',
+            tag: 'HUMAN REVIEW',
+            color: AppTheme.emerald,
+            onTap: () => context.go('/evaluations'),
+          ),
         if (isDepartmentHead) ...[
           const SizedBox(height: 11),
           _WorkspaceTile(
             icon: Icons.manage_accounts_rounded,
             title: 'User management',
-            subtitle: 'Add, edit, and activate or deactivate department members.',
+            subtitle:
+                'Add, edit, and activate or deactivate department members.',
             tag: 'GOVERNANCE',
             color: AppTheme.amber,
             onTap: () => context.go('/admin/users'),

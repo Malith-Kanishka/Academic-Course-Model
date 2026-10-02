@@ -4,6 +4,7 @@ import { NavLink } from 'react-router-dom';
 import approvalService from '../../services/approvalService';
 import { authService } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
+import { getUserRole, hasRole } from '../../utils/roles';
 
 const BASE_LINKS = [
   { name: 'Overview', path: '/dashboard', icon: LayoutDashboard },
@@ -21,15 +22,22 @@ const DEPARTMENT_HEAD_LINKS = [
 
 export default function Sidebar() {
   const { user } = useAuthStore();
-  const role = user?.role ?? user?.Role ?? 'Student';
-  const roleLabel = String(role).replace(/([A-Z])/g, ' $1').trim() || 'Student';
-  const normalizedRole = String(role).trim().toLowerCase().replace(/[\s_-]/g, '');
-  const isDepartmentHead = ['0', 'departmenthead', 'depthead', 'admin'].includes(normalizedRole);
-  const navLinks = isDepartmentHead ? DEPARTMENT_HEAD_LINKS : BASE_LINKS;
+  const normalizedRole = getUserRole(user);
+  const roleLabel = ({ admin: 'Admin', professor: 'Professor', ta: 'Teaching Assistant', student: 'Student' })[normalizedRole] ?? 'Student';
+  const isAdmin = normalizedRole === 'admin';
+  const isStudent = normalizedRole === 'student';
+  const canReviewApprovals = hasRole(user, ['Professor', 'Admin']);
+  const navLinks = isStudent
+    ? BASE_LINKS.filter(({ name }) => ['Overview', 'Curriculum'].includes(name))
+    : isAdmin
+      ? [...BASE_LINKS, ...DEPARTMENT_HEAD_LINKS.filter(({ name }) => name === 'User directory')]
+      : BASE_LINKS.filter(({ name }) => name !== 'Approvals' || hasRole(user, ['Professor']));
 
   const [pendingCount, setPendingCount] = useState(null); // null = loading
 
   useEffect(() => {
+    if (!canReviewApprovals) return undefined;
+
     let cancelled = false;
     approvalService
       .getPendingApprovals()
@@ -42,7 +50,9 @@ export default function Sidebar() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [canReviewApprovals]);
+
+  const visiblePendingCount = canReviewApprovals ? pendingCount : 0;
 
   return (
     <aside className="flex h-screen w-72 shrink-0 flex-col border-r border-slate-200/80 bg-white/80 text-slate-700 backdrop-blur-xl">
@@ -75,16 +85,16 @@ export default function Sidebar() {
             <span className="flex-1">{name}</span>
 
             {/* Live pending approvals badge */}
-            {name === 'Approvals' && pendingCount !== null && pendingCount > 0 && (
+            {name === 'Approvals' && visiblePendingCount !== null && visiblePendingCount > 0 && (
               <span
                 id="sidebar-approvals-badge"
                 className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 tabular-nums"
               >
-                {pendingCount}
+                {visiblePendingCount}
               </span>
             )}
             {/* Subtle loading pulse while fetching */}
-            {name === 'Approvals' && pendingCount === null && (
+            {name === 'Approvals' && visiblePendingCount === null && (
               <span className="h-3 w-5 animate-pulse rounded-full bg-slate-200" />
             )}
 
@@ -101,7 +111,7 @@ export default function Sidebar() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-slate-800">{user?.email || 'professor@acm.edu'}</p>
-              <p className="mt-0.5 text-xs text-amber-600">{roleLabel || 'Department Head'}</p>
+              <p className="mt-0.5 text-xs text-amber-600">{roleLabel}</p>
             </div>
           </div>
 

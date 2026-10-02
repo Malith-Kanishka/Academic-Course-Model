@@ -30,8 +30,21 @@ abstract final class AppRouter {
           if (!authController.isInitialized) return '/login';
           final isLoggedIn = authController.isAuthenticated;
           final path = state.uri.path;
+          final role =
+              (authController.user?['role'] ?? '').toString().toLowerCase();
+          final isDepartmentHead =
+              role.contains('head') || role.contains('admin') || role == '0';
+          final canReviewApprovals = isDepartmentHead ||
+              role.contains('lecturer') ||
+              role.contains('professor') ||
+              role == '1';
           if (!isLoggedIn && path != '/login') return '/login';
           if (isLoggedIn && path == '/login') return '/dashboard';
+          if (path == '/admin/users' && !isDepartmentHead) return '/dashboard';
+          if ((path == '/evaluations' || path == '/remedial-plan') &&
+              !canReviewApprovals) {
+            return '/dashboard';
+          }
           return null;
         },
         routes: [
@@ -93,7 +106,8 @@ abstract final class AppRouter {
           GoRoute(
             path: '/admin/users',
             builder: (context, state) => ChangeNotifierProvider(
-              create: (_) => UserManagementController(UserManagementRepository()),
+              create: (_) =>
+                  UserManagementController(UserManagementRepository()),
               child: const UserManagementScreen(),
             ),
           ),
