@@ -33,7 +33,7 @@ namespace ACM.Backend.Services
                 };
 
                 // Calls the FastAPI endpoint we just verified
-                var response = await _httpClient.PostAsJsonAsync("api/ai/audit", payload);
+                var response = await _httpClient.PostAsJsonAsync("api/ai/audit-topic", payload);
                 if (response.IsSuccessStatusCode)
                 {
                     var result = await response.Content.ReadFromJsonAsync<PythonAuditResponse>();
