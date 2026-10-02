@@ -6,8 +6,7 @@ import { authService } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
 
 const BASE_LINKS = [
-  { name: 'Overview', path: '/curriculum', icon: LayoutDashboard },
-  { name: 'User directory', path: '/admin/users', icon: Users },
+  { name: 'Overview', path: '/dashboard', icon: LayoutDashboard },
   { name: 'Curriculum', path: '/curriculum', icon: BookOpen },
   { name: 'Approvals', path: '/approvals', icon: CheckCheck },
   { name: 'Session monitor', path: '/sessions', icon: BriefcaseBusiness },
@@ -24,8 +23,8 @@ export default function Sidebar() {
   const { user } = useAuthStore();
   const role = user?.role ?? user?.Role ?? 'Student';
   const roleLabel = String(role).replace(/([A-Z])/g, ' $1').trim() || 'Student';
-  const normalizedRole = String(role).toLowerCase();
-  const isDepartmentHead = role === 0 || normalizedRole === '0' || normalizedRole === 'departmenthead';
+  const normalizedRole = String(role).trim().toLowerCase().replace(/[\s_-]/g, '');
+  const isDepartmentHead = ['0', 'departmenthead', 'depthead', 'admin'].includes(normalizedRole);
   const navLinks = isDepartmentHead ? DEPARTMENT_HEAD_LINKS : BASE_LINKS;
 
   const [pendingCount, setPendingCount] = useState(null); // null = loading
@@ -63,6 +62,7 @@ export default function Sidebar() {
           <NavLink
             key={name}
             to={path}
+            end={name === 'Overview'}
             className={({ isActive }) =>
               `group flex items-center gap-3 rounded-xl border px-3 py-3 text-sm font-medium transition ${
                 isActive

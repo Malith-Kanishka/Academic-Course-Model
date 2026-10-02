@@ -5,9 +5,9 @@ import { useAuthStore } from '../store/authStore';
 const normalizeRole = (value) => {
   if (value === null || value === undefined || value === '') return '';
 
-  const roleKey = String(value).trim().toLowerCase();
+  const roleKey = String(value).trim().toLowerCase().replace(/[\s_-]/g, '');
 
-  if (roleKey === 'departmenthead' || roleKey === '0') return 'departmenthead';
+  if (['departmenthead', 'depthead', 'admin', '0'].includes(roleKey)) return 'departmenthead';
   if (roleKey === 'lecturer' || roleKey === '1') return 'lecturer';
   if (roleKey === 'teacher' || roleKey === '2') return 'teacher';
   if (roleKey === 'student' || roleKey === '3') return 'student';

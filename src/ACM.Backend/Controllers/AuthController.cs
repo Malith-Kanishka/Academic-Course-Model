@@ -301,6 +301,22 @@ namespace ACM.Backend.Controllers
             await _userService.RevokeRefreshTokenAsync(userId, request.RefreshToken);
             return Ok(new { message = "Logged out successfully" });
         }
+
+        /// <summary>
+        /// Revoke every active refresh token for the authenticated user.
+        /// </summary>
+        [HttpPost("logout-all")]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> LogoutAllDevices()
+        {
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdClaim?.Value, out Guid userId))
+                return Unauthorized();
+
+            var revokedSessions = await _userService.RevokeAllRefreshTokensAsync(userId);
+            return Ok(new { message = "All sessions have been signed out", revokedSessions });
+        }
     }
 
     public class RefreshTokenRequestDto

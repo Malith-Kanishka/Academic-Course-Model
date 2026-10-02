@@ -333,6 +333,26 @@ namespace ACM.Backend.Services
             return true;
         }
 
+        public async Task<int> RevokeAllRefreshTokensAsync(Guid userId)
+        {
+            var refreshTokens = await _context.RefreshTokens
+                .Where(token => token.UserId == userId && !token.IsRevoked)
+                .ToListAsync();
+
+            foreach (var refreshToken in refreshTokens)
+            {
+                refreshToken.IsRevoked = true;
+            }
+
+            if (refreshTokens.Count > 0)
+            {
+                await _context.SaveChangesAsync();
+            }
+
+            _logger.LogInformation("Revoked {Count} refresh tokens for user: {UserId}", refreshTokens.Count, userId);
+            return refreshTokens.Count;
+        }
+
         public async Task<bool> ValidatePasswordAsync(string plainPassword, string passwordHash)
         {
             return await Task.FromResult(ValidatePasswordHash(plainPassword, passwordHash));

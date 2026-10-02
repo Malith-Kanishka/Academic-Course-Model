@@ -17,6 +17,7 @@ namespace ACM.Backend.Core.Interfaces
         Task<bool> ActivateUserAsync(Guid userId);
         Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword);
         Task<bool> RevokeRefreshTokenAsync(Guid userId, string token);
+        Task<int> RevokeAllRefreshTokensAsync(Guid userId);
         Task<bool> ValidatePasswordAsync(string plainPassword, string passwordHash);
     }
 }
