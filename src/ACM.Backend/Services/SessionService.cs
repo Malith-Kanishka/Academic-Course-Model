@@ -159,5 +159,55 @@ namespace ACM.Backend.Services
                 .OrderByDescending(session => session.StartTime)
                 .ToListAsync();
         }
+
+        public async Task<string> EndAndEvaluateSessionAsync(Guid sessionId)
+        {
+            var session = await _context.StudySessions
+                .Include(s => s.DialogueTurns)
+                .FirstOrDefaultAsync(s => s.Id == sessionId);
+                
+            if (session == null) throw new Exception("Session not found");
+
+            int totalQuestions = session.DialogueTurns.Count(t => t.Speaker == SpeakerType.AI_Socratic);
+            var misconceptions = new System.Collections.Generic.List<string>();
+            var studentTurns = session.DialogueTurns.Where(t => t.Speaker == SpeakerType.Student).ToList();
+            
+            // To deliberately fail sessions (QA requirement), we flag short or poor answers
+            foreach(var turn in studentTurns) 
+            {
+                if (turn.Text.Split(' ').Length < 5) 
+                {
+                    misconceptions.Add("Student provided overly brief or incorrect answers indicating lack of depth.");
+                    break;
+                }
+            }
+            
+            int correctAnswers = misconceptions.Any() ? totalQuestions / 2 : totalQuestions;
+            
+            var payload = new
+            {
+                session_id = sessionId.ToString(),
+                student_id = session.StudentId.ToString(),
+                topic_name = "Assessed Topic",
+                correct_answers = correctAnswers,
+                total_questions = totalQuestions,
+                flagged_misconceptions = misconceptions
+            };
+
+            var jsonPayload = JsonSerializer.Serialize(payload);
+            var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+            // Post to the newly added Python endpoint
+            var response = await _httpClient.PostAsync("http://127.0.0.1:8000/api/internal/evaluate-session", content);
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception($"Python Evaluator Service failed: {response.StatusCode}");
+            }
+
+            session.Status = SessionStatus.Completed;
+            await _context.SaveChangesAsync();
+
+            return await response.Content.ReadAsStringAsync();
+        }
     }
 }

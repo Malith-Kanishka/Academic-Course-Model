@@ -21,6 +21,7 @@ from pydantic import BaseModel
 from app.agents.coordinator_agent import SessionCoordinatorAgent
 from app.agents.knowledge_auditor_agent import audit_student_claim
 from app.agents.socratic_adversary_agent import SocraticAdversary
+from app.agents.safety_evaluator_agent import SafetyEvaluatorAgent, SessionFinalTranscriptDTO
 from app.graph.state import WorkflowState
 from app.schemas.audit_schemas import FactAuditRequest, FactAuditResultDTO
 from app.schemas.session_schemas import NextTurnDirectiveDTO, SessionAgendaDTO, SessionInitRequest
@@ -85,6 +86,7 @@ app.include_router(rag_router)
 # Initialize the AI agents
 _coordinator = SessionCoordinatorAgent()
 socratic_agent = SocraticAdversary()
+evaluator_agent = SafetyEvaluatorAgent()
 
 
 @app.get("/health")
@@ -215,3 +217,12 @@ async def process_dialogue(request: DialogueRequest):
         return AIResponse(ai_text=response_text)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/internal/evaluate-session")
+def evaluate_session_endpoint(payload: SessionFinalTranscriptDTO):
+    try:
+        # Send to SafetyEvaluatorAgent which will synchronously POST back to C#
+        result = evaluator_agent.evaluate_session(payload.model_dump(), send_to_backend=True)
+        return result
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=str(exc))

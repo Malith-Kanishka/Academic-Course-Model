@@ -12,7 +12,8 @@ import 'package:permission_handler/permission_handler.dart';
 import '../services/audio_recorder_service.dart';
 import '../widgets/mic_button.dart';
 import '../widgets/decibel_visualizer.dart';
-import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import '_path_helper_stub.dart' if (dart.library.io) '_path_helper_native.dart';
 
 class ArenaScreen extends StatefulWidget {
   const ArenaScreen({super.key, this.initialTopic});
@@ -61,11 +62,13 @@ class _ArenaScreenState extends State<ArenaScreen> {
     if (status != PermissionStatus.granted) return;
 
     if (await _audioRecorder.hasPermission()) {
-      final path = '${Directory.systemTemp.path}/student_audio.m4a';
-      await _audioRecorder.start(
-        const RecordConfig(encoder: AudioEncoder.aacLc),
-        path: path,
-      );
+      if (kIsWeb) {
+        // On web, path is ignored by the record package but must be provided
+        await _audioRecorder.start(const RecordConfig(encoder: AudioEncoder.opus), path: '');
+      } else {
+        final String p = await getAudioTempPath();
+        await _audioRecorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: p);
+      }
       setState(() {
         _isRecording = true;
       });
