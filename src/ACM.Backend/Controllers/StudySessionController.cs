@@ -48,9 +48,17 @@ namespace ACM.Backend.Controllers
                 return BadRequest("No audio file detected.");
             }
 
-            var aiResponseText = await _sessionService.ProcessStudentAudioAsync(dto);
-            
-            return Ok(new { AiResponse = aiResponseText });
+            var result = await _sessionService.ProcessStudentAudioAsync(dto);
+            return Ok(result);
+        }
+
+        [HttpPost("turn")]
+        public async Task<IActionResult> SubmitTextTurn([FromBody] StudentTextTurnDto dto)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            var result = await _sessionService.ProcessStudentTextAsync(dto);
+            return Ok(result);
         }
 
         // GET: api/sessions/{id}

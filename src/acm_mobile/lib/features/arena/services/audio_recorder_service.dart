@@ -11,12 +11,15 @@ class AudioSessionService {
   }) async {
     final formData = FormData.fromMap({
       'sessionId': sessionId,
-      'audio': await MultipartFile.fromFile(audioPath, filename: 'audio.m4a'),
+      'audioFile': await MultipartFile.fromFile(audioPath, filename: 'audio.m4a'),
     });
 
     final response = await _client.dio.post<Map<String, dynamic>>(
       '/sessions/audio',
       data: formData,
+      options: Options(
+        contentType: 'multipart/form-data',
+      ),
     );
     
     return response.data ?? <String, dynamic>{};
