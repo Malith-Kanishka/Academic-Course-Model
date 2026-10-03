@@ -19,6 +19,16 @@ export const curriculumService = {
     return response.data;
   },
 
+  async updateModule(moduleId, moduleData) {
+    const response = await apiClient.put(`/Syllabus/modules/${moduleId}`, moduleData);
+    return response.data;
+  },
+
+  async deleteModule(moduleId) {
+    const response = await apiClient.delete(`/Syllabus/modules/${moduleId}`);
+    return response.data;
+  },
+
   async createTopic(topicData) {
     const response = await apiClient.post('/Syllabus/topics', topicData);
     return response.data;

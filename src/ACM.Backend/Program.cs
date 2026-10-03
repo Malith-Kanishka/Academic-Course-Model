@@ -125,6 +125,15 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = string.Empty; // This makes Swagger open automatically at the root URL (http://localhost:xxxx/)!
 });
 
+// Serve uploaded study material files (PDFs, etc.) under /uploads/
+var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
+Directory.CreateDirectory(uploadsPath);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
+    RequestPath = "/uploads"
+});
+
 // Member 1 - Authentication Middleware
 app.UseAuthentication();
 app.UseAuthorization();
