@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -21,6 +22,7 @@ namespace ACM.Backend.Controllers
         }
 
         [HttpPost("upload-pdf")]
+        [Authorize(Roles = "Professor,Admin")]
         public async Task<IActionResult> UploadPdf(IFormFile file)
         {
             if (file == null || file.Length == 0)
@@ -84,6 +86,7 @@ namespace ACM.Backend.Controllers
         }
 
         [HttpGet("sessions")]
+        [Authorize(Roles = "Professor,Admin,TA")]
         public async Task<IActionResult> GetSessions()
         {
             var sessions = System.Linq.Enumerable.ToList(_context.Set<ChatSession>());

@@ -92,6 +92,7 @@ builder.Services.AddHttpClient<KnowledgeAuditorService>(client =>
 
 // Register the Curriculum Service
 builder.Services.AddScoped<CurriculumService>();
+builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
 
 // Enable CORS for React web app and Flutter mobile app
 builder.Services.AddCors(options =>

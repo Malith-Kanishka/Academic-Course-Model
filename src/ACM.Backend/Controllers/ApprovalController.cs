@@ -1,11 +1,14 @@
 namespace ACM.Backend.Controllers;
 
+using System.Security.Claims;
 using ACM.Backend.Core.DTOs.Member4;
 using ACM.Backend.Core.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
 [Route("api/[controller]")]
+[Route("api/approvals")]
 public class ApprovalController : ControllerBase
 {
     private readonly IApprovalService _approvalService;
@@ -45,6 +48,7 @@ public class ApprovalController : ControllerBase
     /// Used by Member 4's React Professor Approval Inbox.
     /// </summary>
     [HttpGet("pending")]
+    [Authorize(Roles = "Professor,Admin")]
     public async Task<IActionResult> GetPendingApprovals()
     {
         var pendingPlans = await _approvalService.GetPendingApprovalsAsync();
@@ -52,10 +56,35 @@ public class ApprovalController : ControllerBase
     }
 
     /// <summary>
+    /// Gets the authenticated student's active remedial plans and approved tasks.
+    /// </summary>
+    [HttpGet("mine")]
+    [Authorize(Roles = "Student")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetMyActivePlans()
+    {
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var studentId))
+            return Unauthorized();
+
+        var plans = await _approvalService.GetActivePlansForStudentAsync(studentId);
+        return Ok(plans.Select(plan => new
+        {
+            plan.Id,
+            plan.ApprovalStatus,
+            plan.ActionItems,
+            plan.ApprovedAt,
+            plan.CreatedAt
+        }));
+    }
+
+    /// <summary>
     /// Professor submits approval decision (Approve or Reject with feedback).
     /// Used by Member 4's React Professor Inbox action buttons.
     /// </summary>
     [HttpPost("decision")]
+    [Authorize(Roles = "Professor,Admin")]
     public async Task<IActionResult> SubmitDecision([FromBody] ApprovalDecisionDto decision)
     {
         if (decision == null) return BadRequest("Invalid decision data.");

@@ -1,9 +1,21 @@
-import { Outlet } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import FloatingChatWidget from '../FloatingChatWidget';
 
 export default function Layout() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const showAccessDenied = Boolean(location.state?.accessDenied);
+
+  useEffect(() => {
+    if (!showAccessDenied) return undefined;
+
+    const timeout = window.setTimeout(() => navigate(location.pathname, { replace: true, state: {} }), 3500);
+    return () => window.clearTimeout(timeout);
+  }, [showAccessDenied, location.pathname, navigate]);
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#F8FAFC] text-slate-900">
       <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden opacity-30">
@@ -23,6 +35,11 @@ export default function Layout() {
           </main>
         </div>
       </div>
+      {showAccessDenied && (
+        <div role="status" className="fixed right-5 top-5 z-50 rounded-lg border border-rose-200 bg-white px-4 py-3 text-sm font-semibold text-rose-700 shadow-lg">
+          Access Denied
+        </div>
+      )}
       <FloatingChatWidget />
     </div>
   );

@@ -151,5 +151,13 @@ namespace ACM.Backend.Services
                 .Include(s => s.DialogueTurns)
                 .FirstOrDefaultAsync(s => s.Id == sessionId);
         }
+
+        public async Task<IEnumerable<StudySession>> GetAllSessionsAsync()
+        {
+            return await _context.StudySessions
+                .AsNoTracking()
+                .OrderByDescending(session => session.StartTime)
+                .ToListAsync();
+        }
     }
 }

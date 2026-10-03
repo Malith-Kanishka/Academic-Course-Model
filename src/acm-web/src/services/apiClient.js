@@ -100,6 +100,15 @@ export function logoutAndRedirect() {
     }
 }
 
+export function logoutAllAndRedirect() {
+    clearScheduledRefresh();
+    useAuthStore.getState().logout();
+
+    if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+    }
+}
+
 apiClient.interceptors.request.use((config) => {
     const { token } = useAuthStore.getState();
     if (token) {

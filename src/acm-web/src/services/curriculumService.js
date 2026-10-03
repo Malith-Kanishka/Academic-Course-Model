@@ -1,8 +1,16 @@
 import apiClient from './apiClient';
 
 export const curriculumService = {
-  async getModules() {
-    const response = await apiClient.get('/Syllabus/modules');
+  async getModules({ student = false } = {}) {
+    const response = await apiClient.get(student ? '/student/my-modules' : '/Syllabus/modules');
+    return response.data;
+  },
+
+  async assignStudent(moduleId, studentEmail) {
+    const response = await apiClient.post('/enrollments/assign', {
+      moduleId,
+      studentEmail,
+    });
     return response.data;
   },
 

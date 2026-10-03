@@ -16,6 +16,7 @@ abstract final class ApiConstants {
   }
 
   static const login = '/Auth/login';
+  static const studentModules = '/student/my-modules';
   static const pendingApprovals = '/Approval/pending';
   static const approvalDecision = '/Approval/decision';
 

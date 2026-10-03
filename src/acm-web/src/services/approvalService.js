@@ -40,6 +40,11 @@ const approvalService = {
     return normalizeList(unwrap(response));
   },
 
+  async getMyActiveRemedialPlans() {
+    const response = await apiClient.get('/Approval/mine');
+    return normalizeList(unwrap(response));
+  },
+
   async submitDecision(id, decision, feedback = '') {
     const status = decision === 'Approved' ? 'APPROVED_ACTIVE' : 'REJECTED';
     const response = await apiClient.post('/Approval/decision', {

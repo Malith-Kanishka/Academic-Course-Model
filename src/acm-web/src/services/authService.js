@@ -1,4 +1,4 @@
-import apiClient, { logoutAndRedirect, scheduleTokenRefresh } from './apiClient';
+import apiClient, { logoutAllAndRedirect, logoutAndRedirect, scheduleTokenRefresh } from './apiClient';
 import { useAuthStore } from '../store/authStore';
 
 export const authService = {
@@ -15,5 +15,17 @@ export const authService = {
     },
     logout: () => {
         logoutAndRedirect();
-    }
+    },
+    changePassword: async (userId, currentPassword, newPassword) => {
+        const response = await apiClient.post(`/auth/${userId}/change-password`, {
+            currentPassword,
+            newPassword,
+        });
+        return response.data;
+    },
+    logoutAllDevices: async () => {
+        const response = await apiClient.post('/auth/logout-all');
+        logoutAllAndRedirect();
+        return response.data;
+    },
 };

@@ -1,7 +1,7 @@
-import { BookOpen, ChevronDown, MoreHorizontal } from 'lucide-react';
+import { BookOpen, ChevronDown, UserRoundPlus } from 'lucide-react';
 import { useState } from 'react';
 
-export default function ModuleList({ modules = [] }) {
+export default function ModuleList({ modules = [], canManageEnrollments = false, onManageEnrollments }) {
   // Use backend modules
   const displayModules = modules.map(m => ({
     id: m.id || m.code,
@@ -50,9 +50,17 @@ export default function ModuleList({ modules = [] }) {
                 </div>
               </div>
 
-              <button type="button" className="rounded-lg p-2 text-slate-400 hover:bg-slate-50" aria-label={`More actions for ${module.name}`}>
-                <MoreHorizontal className="h-4 w-4" />
-              </button>
+              {canManageEnrollments && (
+                <button
+                  type="button"
+                  onClick={() => onManageEnrollments?.(modules.find((item) => (item.id || item.code) === module.id))}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:bg-blue-50"
+                  aria-label={`Manage enrollments for ${module.name}`}
+                >
+                  <UserRoundPlus className="h-4 w-4" />
+                  <span className="hidden lg:inline">Manage enrollments</span>
+                </button>
+              )}
               <ChevronDown className={`hidden h-4 w-4 text-slate-400 transition sm:block ${open === module.code ? 'rotate-180' : ''}`} />
             </div>
 

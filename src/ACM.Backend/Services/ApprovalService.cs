@@ -35,6 +35,7 @@ public class ApprovalService : IApprovalService
             MasteryReportId = report.Id,
             StudentId = dto.StudentId,
             ApprovalStatus = requiresApproval ? "PAUSED_FOR_PROFESSOR_APPROVAL" : "APPROVED_ACTIVE",
+            ApprovedAt = requiresApproval ? null : DateTime.UtcNow,
             ActionItems = dto.FlaggedMisconceptions
                 .Select(m => $"Review concept: {m}")
                 .ToList()
@@ -63,6 +64,18 @@ public class ApprovalService : IApprovalService
         return await _context.RemedialPlans
             .Include(plan => plan.MasteryReport)
             .Where(plan => plan.ApprovalStatus == "PAUSED_FOR_PROFESSOR_APPROVAL")
+            .ToListAsync();
+    }
+
+    /// <summary>Gets active remedial plans belonging to the specified student.</summary>
+    public async Task<IEnumerable<RemedialPlan>> GetActivePlansForStudentAsync(Guid studentId)
+    {
+        return await _context.RemedialPlans
+            .Where(plan => plan.StudentId == studentId
+                && plan.ApprovalStatus == "APPROVED_ACTIVE"
+                && plan.ApprovedAt.HasValue
+                && plan.ApprovedAt.Value >= DateTime.UtcNow.AddDays(-7))
+            .OrderByDescending(plan => plan.ApprovedAt)
             .ToListAsync();
     }
 

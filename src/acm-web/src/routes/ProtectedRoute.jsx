@@ -1,21 +1,9 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { hasRole } from '../utils/roles';
 
-const normalizeRole = (value) => {
-  if (value === null || value === undefined || value === '') return '';
-
-  const roleKey = String(value).trim().toLowerCase();
-
-  if (roleKey === 'departmenthead' || roleKey === '0') return 'departmenthead';
-  if (roleKey === 'lecturer' || roleKey === '1') return 'lecturer';
-  if (roleKey === 'teacher' || roleKey === '2') return 'teacher';
-  if (roleKey === 'student' || roleKey === '3') return 'student';
-
-  return roleKey;
-};
-
-export default function ProtectedRoute({ allowedRoles = [] }) {
+export default function ProtectedRoute({ allowedRoles = [], redirectTo = '/curriculum' }) {
   const { isAuthenticated, user } = useAuthStore();
 
   const token = localStorage.getItem('token');
@@ -30,11 +18,8 @@ export default function ProtectedRoute({ allowedRoles = [] }) {
   }
 
   if (allowedRoles.length > 0) {
-    const userRole = normalizeRole(activeUser.role ?? activeUser.Role);
-    const hasPermission = allowedRoles.some((allowedRole) => normalizeRole(allowedRole) === userRole);
-
-    if (!hasPermission) {
-      return <Navigate to="/login" replace />;
+    if (!hasRole(activeUser, allowedRoles)) {
+      return <Navigate to={redirectTo} replace state={{ accessDenied: true }} />;
     }
   }
 

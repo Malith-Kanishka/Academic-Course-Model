@@ -32,7 +32,7 @@ class _ArenaScreenState extends State<ArenaScreen> {
   bool _backendSession = false;
   String? _sessionId;
   String? _sessionNotice;
-  
+
   final _audioRecorder = AudioRecorder();
   final _audioPlayer = AudioPlayer();
   final _audioService = AudioSessionService();
@@ -79,7 +79,7 @@ class _ArenaScreenState extends State<ArenaScreen> {
       final amp = await _audioRecorder.getAmplitude();
       if (mounted) {
         setState(() {
-          _amplitude = (amp.current + 160) / 160; 
+          _amplitude = (amp.current + 160) / 160;
         });
       }
       await Future.delayed(const Duration(milliseconds: 100));
@@ -98,7 +98,7 @@ class _ArenaScreenState extends State<ArenaScreen> {
 
   Future<void> _sendAudio(String path) async {
     setState(() {
-       _sessionNotice = 'Analyzing speech...';
+      _sessionNotice = 'Analyzing speech...';
     });
     try {
       if (_backendSession) {
@@ -107,28 +107,45 @@ class _ArenaScreenState extends State<ArenaScreen> {
           audioPath: path,
         );
         setState(() {
-           _messages.add(_DialogueMessage(text: response['transcript'] ?? '(Audio transcript)', fromGuide: false));
-           _messages.add(_DialogueMessage(text: response['aiText'] ?? '(AI response)', fromGuide: true));
-           _sessionNotice = 'AI response received.';
+          _messages.add(_DialogueMessage(
+              text: response['transcript'] ?? '(Audio transcript)',
+              fromGuide: false));
+          _messages.add(_DialogueMessage(
+              text: response['aiText'] ?? '(AI response)', fromGuide: true));
+          _sessionNotice = 'AI response received.';
         });
         if (response['audioUrl'] != null) {
-           await _audioPlayer.play(UrlSource(response['audioUrl']));
+          await _audioPlayer.play(UrlSource(response['audioUrl']));
         }
       } else {
         setState(() {
-           _messages.add(const _DialogueMessage(text: '(Simulated audio transcript)', fromGuide: false));
-           _messages.add(const _DialogueMessage(text: 'I heard you! This is a simulated response.', fromGuide: true));
-           _sessionNotice = 'Practice dialogue';
+          _messages.add(const _DialogueMessage(
+              text: '(Simulated audio transcript)', fromGuide: false));
+          _messages.add(const _DialogueMessage(
+              text: 'I heard you! This is a simulated response.',
+              fromGuide: true));
+          _sessionNotice = 'Practice dialogue';
         });
       }
     } catch (e) {
-       if (mounted) setState(() => _sessionNotice = 'Audio upload failed');
+      if (mounted) setState(() => _sessionNotice = 'Audio upload failed');
     }
   }
 
   Future<void> _startSession() async {
     final topic = _selectedTopic;
     if (topic == null) return;
+    final enrolledTopics = context
+        .read<CurriculumController>()
+        .modules
+        .expand((module) => module.topics);
+    if (!enrolledTopics.any((item) => item.id == topic.id)) {
+      setState(() {
+        _selectedTopic = null;
+        _sessionNotice = 'Choose a topic from your enrolled modules.';
+      });
+      return;
+    }
     setState(() {
       _starting = true;
       _sessionNotice = null;
@@ -173,7 +190,9 @@ class _ArenaScreenState extends State<ArenaScreen> {
     final curriculum = context.watch<CurriculumController>();
     final topics =
         curriculum.modules.expand((module) => module.topics).toList();
-    final topic = _selectedTopic;
+    final selectedTopicIsEnrolled =
+        topics.any((item) => item.id == _selectedTopic?.id);
+    final topic = selectedTopicIsEnrolled ? _selectedTopic : null;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
       children: [
@@ -242,15 +261,13 @@ class _ArenaScreenState extends State<ArenaScreen> {
                 DropdownButtonFormField<CourseTopic>(
                   initialValue: topics.any((item) => item.id == topic?.id)
                       ? topics.firstWhere((item) => item.id == topic?.id)
-                      : topic,
+                      : null,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Learning topic',
                     prefixIcon: Icon(Icons.menu_book_outlined),
                   ),
                   items: [
-                    if (topic != null && !topics.any((t) => t.id == topic.id))
-                      DropdownMenuItem(value: topic, child: Text(topic.title)),
                     ...topics.map((item) => DropdownMenuItem(
                           value: item,
                           child: Text(item.title,
@@ -263,7 +280,7 @@ class _ArenaScreenState extends State<ArenaScreen> {
                 ),
                 const SizedBox(height: 14),
                 FilledButton.icon(
-                  onPressed: _selectedTopic == null || _starting
+                  onPressed: topic == null || curriculum.isLoading || _starting
                       ? null
                       : _sessionStarted
                           ? null
