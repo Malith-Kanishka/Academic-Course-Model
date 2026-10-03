@@ -63,5 +63,20 @@ namespace ACM.Backend.Controllers
 
             return Ok(session);
         }
+
+        // POST: api/sessions/{id}/end
+        [HttpPost("{id}/end")]
+        public async Task<IActionResult> EndSession(Guid id)
+        {
+            try
+            {
+                var result = await _sessionService.EndAndEvaluateSessionAsync(id);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
     }
 }
