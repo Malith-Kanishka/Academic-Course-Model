@@ -3,6 +3,10 @@ import { useAuthStore } from '../store/authStore';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
+// Root origin of the backend server, used to build absolute URLs for static files
+// (uploaded PDFs are served at BACKEND_ORIGIN + fileUrl, e.g. /uploads/xxx.pdf)
+export const BACKEND_ORIGIN = BASE_URL.replace(/\/api\/?$/, '');
+
 // Session refresh window: access tokens are issued with a 35 minute lifetime
 // (see ACM.Backend appsettings Jwt:ExpirationMinutes). We proactively refresh
 // a little before expiry so an active admin is never dropped mid-session.

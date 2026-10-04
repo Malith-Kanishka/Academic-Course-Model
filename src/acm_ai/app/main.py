@@ -133,6 +133,10 @@ class AStarFilterRequest(BaseModel):
 class DialogueRequest(BaseModel):
     session_id: str
     student_text: str
+    topic_name: str = "Unknown Topic"
+    turn_count: int = 0
+    history: List[str] = []
+
 
 
 class AIResponse(BaseModel):
@@ -212,7 +216,13 @@ async def process_dialogue(request: DialogueRequest):
                 context=context
             )
         else:
-            response_text = socratic_agent.generate_response(request.student_text)
+            response_text = socratic_agent.generate_response(
+                student_text=request.student_text,
+                topic_name=request.topic_name,
+                turn_count=request.turn_count,
+                history=request.history
+            )
+
 
         return AIResponse(ai_text=response_text)
     except Exception as e:

@@ -9,6 +9,7 @@ import '../../curriculum/state/curriculum_controller.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../services/audio_recorder_service.dart';
 import '../widgets/mic_button.dart';
 import '../widgets/decibel_visualizer.dart';
@@ -26,10 +27,13 @@ class ArenaScreen extends StatefulWidget {
 
 class _ArenaScreenState extends State<ArenaScreen> {
   final _messageController = TextEditingController();
+  final _scrollController = ScrollController();
   final _messages = <_DialogueMessage>[];
+  final _speech = FlutterTts();
   CourseTopic? _selectedTopic;
   bool _sessionStarted = false;
   bool _starting = false;
+  bool _sending = false;
   bool _backendSession = false;
   String? _sessionId;
   String? _sessionNotice;
@@ -38,6 +42,7 @@ class _ArenaScreenState extends State<ArenaScreen> {
   final _audioPlayer = AudioPlayer();
   final _audioService = AudioSessionService();
   bool _isRecording = false;
+  bool _isAgentSpeaking = false;
   double _amplitude = 0.0;
 
   @override
@@ -47,23 +52,64 @@ class _ArenaScreenState extends State<ArenaScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) context.read<CurriculumController>().loadModules();
     });
+
+    _setupAudioListeners();
+  }
+
+  void _setupAudioListeners() {
+    _speech.setStartHandler(() {
+      if (mounted) setState(() => _isAgentSpeaking = true);
+    });
+    _speech.setCompletionHandler(() {
+      if (mounted) setState(() => _isAgentSpeaking = false);
+    });
+    _speech.setCancelHandler(() {
+      if (mounted) setState(() => _isAgentSpeaking = false);
+    });
+
+    _audioPlayer.onPlayerStateChanged.listen((state) {
+      if (mounted) {
+        setState(() {
+          _isAgentSpeaking = state == PlayerState.playing;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _messageController.dispose();
+    _scrollController.dispose();
     _audioRecorder.dispose();
     _audioPlayer.dispose();
+    _speech.stop();
     super.dispose();
   }
 
+  void _scrollToBottom() {
+    if (!_scrollController.hasClients) return;
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
   Future<void> _startRecording() async {
+    if (_sending) return;
+    await _audioPlayer.stop();
+    await _speech.stop();
+    if (mounted) setState(() => _isAgentSpeaking = false);
+    
     final status = await Permission.microphone.request();
     if (status != PermissionStatus.granted) return;
 
     if (await _audioRecorder.hasPermission()) {
       if (kIsWeb) {
-        // On web, path is ignored by the record package but must be provided
         await _audioRecorder.start(const RecordConfig(encoder: AudioEncoder.opus), path: '');
       } else {
         final String p = await getAudioTempPath();
@@ -101,6 +147,7 @@ class _ArenaScreenState extends State<ArenaScreen> {
 
   Future<void> _sendAudio(String path) async {
     setState(() {
+      _sending = true;
       _sessionNotice = 'Analyzing speech...';
     });
     try {
@@ -110,13 +157,12 @@ class _ArenaScreenState extends State<ArenaScreen> {
           audioPath: path,
         );
         setState(() {
-          _messages.add(_DialogueMessage(
-              text: response['transcript'] ?? '(Audio transcript)',
-              fromGuide: false));
-          _messages.add(_DialogueMessage(
-              text: response['aiText'] ?? '(AI response)', fromGuide: true));
+          _messages.add(_DialogueMessage(text: response['transcript']?.toString() ?? '', fromGuide: false));
+          _messages.add(_DialogueMessage(text: response['aiText']?.toString() ?? '', fromGuide: true));
           _sessionNotice = 'AI response received.';
         });
+        _scrollToBottom();
+        await _speakResponse(response['aiText']?.toString() ?? '');
         if (response['audioUrl'] != null) {
           await _audioPlayer.play(UrlSource(response['audioUrl']));
         }
@@ -129,9 +175,55 @@ class _ArenaScreenState extends State<ArenaScreen> {
               fromGuide: true));
           _sessionNotice = 'Practice dialogue';
         });
+        _scrollToBottom();
       }
     } catch (e) {
       if (mounted) setState(() => _sessionNotice = 'Audio upload failed');
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _sendTypedMessage() async {
+    final text = _messageController.text.trim();
+    if (text.isEmpty || _sending) return;
+    if (!_backendSession || _sessionId == null) {
+      setState(() => _sessionNotice = 'Connect a backend session before sending.');
+      return;
+    }
+
+    _messageController.clear();
+    setState(() {
+      _sending = true;
+      _sessionNotice = 'Tutor is thinking...';
+      _messages.add(_DialogueMessage(text: text, fromGuide: false));
+    });
+    _scrollToBottom();
+    try {
+      final response = await context.read<ArenaRepository>().sendTurn(
+            sessionId: _sessionId!,
+            studentText: text,
+          );
+      if (!mounted) return;
+      setState(() {
+        _messages.add(_DialogueMessage(text: response, fromGuide: true));
+        _sessionNotice = 'AI response received.';
+      });
+      _scrollToBottom();
+      await _speakResponse(response);
+    } catch (_) {
+      if (mounted) setState(() => _sessionNotice = 'Message could not be sent.');
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _speakResponse(String text) async {
+    if (text.isEmpty) return;
+    try {
+      await _speech.speak(text);
+    } catch (_) {
+      // Text remains available when the device has no speech engine configured.
     }
   }
 
@@ -186,6 +278,9 @@ class _ArenaScreenState extends State<ArenaScreen> {
         fromGuide: true,
       ));
     });
+    _scrollToBottom();
+    // Initially speak the first greeting if possible
+    await _speakResponse(_messages.last.text);
   }
 
   @override
@@ -196,79 +291,267 @@ class _ArenaScreenState extends State<ArenaScreen> {
     final selectedTopicIsEnrolled =
         topics.any((item) => item.id == _selectedTopic?.id);
     final topic = selectedTopicIsEnrolled ? _selectedTopic : null;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-      children: [
-        Row(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Socratic Arena'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: SafeArea(
+        child: Column(
           children: [
-            Expanded(
-              child: Text('Socratic arena',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      )),
-            ),
-            const _StatPill(label: 'Completed', value: '0'),
-            const SizedBox(width: 8),
-            const _StatPill(label: 'Mastery', value: '0%'),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-            'Choose a learning topic, then work through it by reasoning aloud.',
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: AppTheme.textMuted)),
-        const SizedBox(height: 18),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+            // Beautiful Header Matching Dashboard
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1D4ED8), Color(0xFF312E81)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withValues(alpha: .12)),
+                ),
+                child: Row(
                   children: [
                     Container(
-                      width: 42,
-                      height: 42,
+                      width: 52,
+                      height: 52,
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryBlue.withValues(alpha: .15),
-                        borderRadius: BorderRadius.circular(11),
+                        color: Colors.white.withValues(alpha: .16),
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      child: const Icon(Icons.psychology_alt_rounded,
-                          color: AppTheme.primaryBlue),
+                      child: const Icon(Icons.psychology_alt_rounded, color: Colors.white, size: 28),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Start Socratic Session',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w800)),
-                          Text(topic?.title ?? 'Select a topic to begin',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(color: AppTheme.textMuted)),
+                          Text('Socratic Arena',
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  color: Colors.white, fontWeight: FontWeight.w800)),
+                          const SizedBox(height: 4),
+                          Text('Practice by reasoning aloud',
+                              style: TextStyle(
+                                  color: Colors.white.withValues(alpha: .86),
+                                  fontSize: 13)),
                         ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 15),
+              ),
+            ),
+    
+            // Body Content
+            Expanded(
+              child: _sessionStarted
+                  ? _buildSessionDialogue()
+                  : _buildTopicSelection(curriculum, topics, topic),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSessionDialogue() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text('Dialogue',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800
+                    )),
+              ),
+              if (_sessionNotice != null)
+                Text(_sessionNotice!,
+                    style: Theme.of(context)
+                        .textTheme
+                        .labelSmall
+                        ?.copyWith(color: AppTheme.textMuted)),
+            ],
+          ),
+        ),
+        
+        Expanded(
+          child: ListView.builder(
+            controller: _scrollController,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            itemCount: _messages.length,
+            itemBuilder: (context, index) {
+              final message = _messages[index];
+              return Align(
+                alignment: message.fromGuide
+                    ? Alignment.centerLeft
+                    : Alignment.centerRight,
+                child: Container(
+                  constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width * 0.75),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: message.fromGuide
+                        ? AppTheme.surface
+                        : AppTheme.primaryBlue.withValues(alpha: .15),
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(16),
+                      topRight: const Radius.circular(16),
+                      bottomLeft: Radius.circular(message.fromGuide ? 4 : 16),
+                      bottomRight: Radius.circular(message.fromGuide ? 16 : 4),
+                    ),
+                    border: Border.all(
+                        color: message.fromGuide
+                            ? AppTheme.border
+                            : AppTheme.primaryBlue.withValues(alpha: .3)),
+                  ),
+                  child: Text(
+                    message.text,
+                    style: TextStyle(
+                      color: message.fromGuide
+                          ? AppTheme.textPrimary
+                          : AppTheme.primaryBlue.withValues(alpha: 0.9),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        
+        if (_sending)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            child: LinearProgressIndicator(),
+          ),
+          
+        // Input Area
+        Material(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          elevation: 10,
+          shadowColor: Colors.black.withValues(alpha: 0.05),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DecibelVisualizer(
+                    isRecording: _isRecording,
+                    isAgentSpeaking: _isAgentSpeaking,
+                    amplitude: _amplitude,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _messageController,
+                          enabled: !_sending && !_isRecording,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _sendTypedMessage(),
+                          maxLines: null,
+                          decoration: InputDecoration(
+                            hintText: 'Type your answer...',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: const BorderSide(color: AppTheme.border),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: const BorderSide(color: AppTheme.border),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: const BorderSide(color: AppTheme.primaryBlue),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      MicButton(
+                        isRecording: _isRecording,
+                        onTapDown: _startRecording,
+                        onTapUp: _stopRecordingAndSend,
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        height: 48,
+                        width: 48,
+                        decoration: const BoxDecoration(
+                          color: AppTheme.primaryBlue,
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          tooltip: 'Send answer',
+                          onPressed: _sending || _isRecording ? null : _sendTypedMessage,
+                          icon: _sending
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTopicSelection(
+      CurriculumController curriculum, List<CourseTopic> topics, CourseTopic? topic) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+      children: [
+        Card(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Start Socratic Session',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                Text('Choose a topic to master',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: AppTheme.textMuted)),
+                const SizedBox(height: 20),
                 DropdownButtonFormField<CourseTopic>(
                   initialValue: topics.any((item) => item.id == topic?.id)
                       ? topics.firstWhere((item) => item.id == topic?.id)
                       : null,
                   isExpanded: true,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Learning topic',
-                    prefixIcon: Icon(Icons.menu_book_outlined),
+                    prefixIcon: const Icon(Icons.menu_book_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   items: [
                     ...topics.map((item) => DropdownMenuItem(
@@ -281,119 +564,81 @@ class _ArenaScreenState extends State<ArenaScreen> {
                       ? null
                       : (value) => setState(() => _selectedTopic = value),
                 ),
-                const SizedBox(height: 14),
-                FilledButton.icon(
-                  onPressed: topic == null || curriculum.isLoading || _starting
-                      ? null
-                      : _sessionStarted
-                          ? null
-                          : _startSession,
-                  icon: _starting
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.play_arrow_rounded),
-                  label: Text(_sessionStarted
-                      ? 'Session in progress'
-                      : 'Begin session'),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: topic == null || curriculum.isLoading || _starting
+                        ? null
+                        : _startSession,
+                    icon: _starting
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.play_arrow_rounded),
+                    label: const Text('Begin session'),
+                  ),
                 ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 18),
-        if (_sessionStarted) ...[
-          Row(
-            children: [
-              Expanded(
-                child: Text('Dialogue',
-                    style: Theme.of(context).textTheme.titleMedium),
-              ),
-              if (_sessionNotice != null)
-                Text(_sessionNotice!,
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelSmall
-                        ?.copyWith(color: AppTheme.textMuted)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ..._messages.map((message) => Align(
-                alignment: message.fromGuide
-                    ? Alignment.centerLeft
-                    : Alignment.centerRight,
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 310),
-                  margin: const EdgeInsets.only(bottom: 9),
-                  padding: const EdgeInsets.all(13),
-                  decoration: BoxDecoration(
-                    color: message.fromGuide
-                        ? AppTheme.surface
-                        : AppTheme.primaryBlue.withValues(alpha: .2),
-                    borderRadius: BorderRadius.circular(13),
-                    border: Border.all(
-                        color: message.fromGuide
-                            ? AppTheme.border
-                            : AppTheme.primaryBlue.withValues(alpha: .35)),
+        const SizedBox(height: 24),
+        Text('Available topics',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800
+            )),
+        const SizedBox(height: 12),
+        if (curriculum.isLoading && topics.isEmpty)
+          const Center(
+              child: Padding(
+            padding: EdgeInsets.all(24),
+            child: CircularProgressIndicator(),
+          ))
+        else if (topics.isEmpty)
+          const Card(
+            child: ListTile(
+              leading: Icon(Icons.info_outline_rounded),
+              title: Text('No learning topics are available.'),
+            ),
+          )
+        else
+          ...topics.take(6).map((item) => Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.amber.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.lightbulb_outline_rounded,
+                        color: AppTheme.amber),
                   ),
-                  child: Text(message.text),
+                  title: Text(item.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: item.description.isEmpty
+                      ? null
+                      : Text(item.description,
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                  trailing: IconButton(
+                    tooltip: 'Select topic',
+                    onPressed: () => setState(() => _selectedTopic = item),
+                    icon: const Icon(Icons.arrow_forward_rounded, color: AppTheme.primaryBlue),
+                  ),
                 ),
               )),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Column(
-                children: [
-                  DecibelVisualizer(
-                    isRecording: _isRecording,
-                    amplitude: _amplitude,
-                  ),
-                  const SizedBox(height: 16),
-                  MicButton(
-                    isRecording: _isRecording,
-                    onTapDown: _startRecording,
-                    onTapUp: _stopRecordingAndSend,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ] else ...[
-          Text('Available learning topics',
-              style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          if (curriculum.isLoading && topics.isEmpty)
-            const Center(
-                child: Padding(
-              padding: EdgeInsets.all(24),
-              child: CircularProgressIndicator(),
-            ))
-          else if (topics.isEmpty)
-            const Card(
-              child: ListTile(
-                leading: Icon(Icons.info_outline_rounded),
-                title: Text('No learning topics are available.'),
-              ),
-            )
-          else
-            ...topics.take(6).map((item) => Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.lightbulb_outline_rounded,
-                        color: AppTheme.amber),
-                    title: Text(item.title),
-                    subtitle: item.description.isEmpty
-                        ? null
-                        : Text(item.description,
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
-                    trailing: IconButton(
-                      tooltip: 'Select topic',
-                      onPressed: () => setState(() => _selectedTopic = item),
-                      icon: const Icon(Icons.arrow_forward_rounded),
-                    ),
-                  ),
-                )),
-        ],
       ],
     );
   }
@@ -404,33 +649,4 @@ class _DialogueMessage {
 
   final String text;
   final bool fromGuide;
-}
-
-class _StatPill extends StatelessWidget {
-  const _StatPill({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-        decoration: BoxDecoration(
-          color: AppTheme.surface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Column(
-          children: [
-            Text(value,
-                style: const TextStyle(
-                    fontWeight: FontWeight.w800, color: AppTheme.primaryBlue)),
-            Text(label,
-                style: Theme.of(context)
-                    .textTheme
-                    .labelSmall
-                    ?.copyWith(color: AppTheme.textMuted)),
-          ],
-        ),
-      );
 }

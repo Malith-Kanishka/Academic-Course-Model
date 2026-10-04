@@ -39,6 +39,56 @@ namespace ACM.Backend.Services
             return module;
         }
 
+        /// <summary>
+        /// Updates an existing module's Code, Title and Description.
+        /// Returns null when the module is not found.
+        /// </summary>
+        public async Task<Module?> UpdateModuleAsync(Guid moduleId, ModuleUpdateDto dto)
+        {
+            var module = await _context.Modules.FindAsync(moduleId);
+            if (module is null)
+                return null;
+
+            module.Code = dto.Code.Trim();
+            module.Title = dto.Title.Trim();
+            module.Description = dto.Description?.Trim() ?? string.Empty;
+
+            await _context.SaveChangesAsync();
+            return module;
+        }
+
+        /// <summary>
+        /// Deletes a module and all its cascaded topics/materials.
+        /// Returns false when the module is not found.
+        /// </summary>
+        public async Task<bool> DeleteModuleAsync(Guid moduleId)
+        {
+            var module = await _context.Modules
+                .Include(m => m.Topics)
+                .ThenInclude(t => t.StudyMaterials)
+                .FirstOrDefaultAsync(m => m.Id == moduleId);
+
+            if (module is null)
+                return false;
+
+            // Remove physical files for all study materials under this module
+            foreach (var topic in module.Topics)
+            {
+                foreach (var material in topic.StudyMaterials)
+                {
+                    if (!string.IsNullOrWhiteSpace(material.FilePathOrUrl) &&
+                        File.Exists(material.FilePathOrUrl))
+                    {
+                        File.Delete(material.FilePathOrUrl);
+                    }
+                }
+            }
+
+            _context.Modules.Remove(module);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
         public async Task<Topic> CreateTopicAsync(TopicCreateDto dto)
         {
             // Validate module exists before creating topic
@@ -77,9 +127,9 @@ namespace ACM.Backend.Services
             if (!string.IsNullOrWhiteSpace(searchDto.Query))
             {
                 var q = searchDto.Query.ToLower();
-                query = query.Where(t => t.Title.ToLower().Contains(q) || 
+                query = query.Where(t => t.Title.ToLower().Contains(q) ||
                                          t.ContentDescription.ToLower().Contains(q) ||
-                                         t.Module.Title.ToLower().Contains(q));
+                                         t.Module!.Title.ToLower().Contains(q));
             }
 
             if (searchDto.ModuleId.HasValue)
@@ -98,22 +148,27 @@ namespace ACM.Backend.Services
                 throw new KeyNotFoundException($"Topic with ID {uploadDto.TopicId} does not exist.");
             }
 
-            // Save file locally or to storage
-            var fileName = $"{Guid.NewGuid()}_{uploadDto.File.FileName}";
-            var filePath = Path.Combine("uploads", fileName);
-            
-            Directory.CreateDirectory("uploads");
+            // Save file to uploads directory
+            var safeFileName = $"{Guid.NewGuid()}_{Path.GetFileName(uploadDto.File.FileName)}";
+            var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
+            Directory.CreateDirectory(uploadsDir);
+            var filePath = Path.Combine(uploadsDir, safeFileName);
+
             using (var stream = new FileStream(filePath, FileMode.Create))
             {
                 await uploadDto.File.CopyToAsync(stream);
             }
+
+            // Store a relative URL path so the frontend can build a full URL
+            var fileUrl = $"/uploads/{safeFileName}";
 
             var material = new StudyMaterial
             {
                 Id = Guid.NewGuid(),
                 TopicId = uploadDto.TopicId,
                 Title = uploadDto.Title,
-                FilePathOrUrl = filePath,
+                FilePathOrUrl = fileUrl,          // store as URL path
+                FileName = uploadDto.File.FileName, // original file name
                 MaterialType = Path.GetExtension(uploadDto.File.FileName).TrimStart('.').ToUpper(),
                 UploadedAt = DateTime.UtcNow
             };

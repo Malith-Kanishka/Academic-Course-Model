@@ -44,7 +44,7 @@ namespace ACM.Backend.Services
             return session;
         }
 
-        public async Task<string> ProcessStudentAudioAsync(AudioStreamDto dto)
+        public async Task<SessionTurnResponseDto> ProcessStudentAudioAsync(AudioStreamDto dto)
         {
             // 1. Save the raw audio file locally
             var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "audio");
@@ -95,54 +95,83 @@ namespace ACM.Backend.Services
             using var whisperDoc = JsonDocument.Parse(whisperJson);
             var transcribedText = whisperDoc.RootElement.GetProperty("text").GetString();
 
-            // 3. Save Student's Real Dialogue Turn to Database
-            var studentTurn = new DialogueTurn
+            return await ProcessStudentTextAsync(new StudentTextTurnDto
+            {
+                SessionId = dto.SessionId,
+                StudentText = transcribedText ?? string.Empty
+            }, filePath);
+        }
+
+        public Task<SessionTurnResponseDto> ProcessStudentTextAsync(StudentTextTurnDto dto)
+        {
+            return ProcessStudentTextAsync(dto, audioFilePath: null);
+        }
+
+        private async Task<SessionTurnResponseDto> ProcessStudentTextAsync(
+            StudentTextTurnDto dto,
+            string? audioFilePath)
+        {
+            if (string.IsNullOrWhiteSpace(dto.StudentText))
+                throw new ArgumentException("A student message is required.");
+
+            var session = await _context.StudySessions
+                .Include(item => item.DialogueTurns)
+                .FirstOrDefaultAsync(item => item.Id == dto.SessionId);
+            if (session == null) throw new KeyNotFoundException("Session not found.");
+
+            var turnCount = session.DialogueTurns.Count(turn => turn.Speaker == SpeakerType.AI_Socratic);
+            var studentText = dto.StudentText.Trim();
+            _context.DialogueTurns.Add(new DialogueTurn
             {
                 SessionId = dto.SessionId,
                 Speaker = SpeakerType.Student,
-                Text = transcribedText!,
-                AudioFilePath = filePath,
+                Text = studentText,
+                AudioFilePath = audioFilePath,
                 Timestamp = DateTime.UtcNow
-            };
-            
-            _context.DialogueTurns.Add(studentTurn);
+            });
             await _context.SaveChangesAsync();
 
-            // ==========================================
-            // 4. CALL THE PYTHON FASTAPI MICROSERVICE
-            // ==========================================
+            var topic = await _context.Topics.FindAsync(session.TopicId);
+            var history = await _context.DialogueTurns
+                .Where(turn => turn.SessionId == dto.SessionId)
+                .OrderBy(turn => turn.Timestamp)
+                .Select(turn => $"{turn.Speaker}: {turn.Text}")
+                .ToListAsync();
             var payload = new
             {
                 session_id = dto.SessionId.ToString(),
-                student_text = transcribedText
+                student_text = studentText,
+                topic_name = topic?.Title ?? "General Topic",
+                turn_count = turnCount,
+                history
             };
 
             var jsonPayload = JsonSerializer.Serialize(payload);
             var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
-
             var response = await _httpClient.PostAsync("http://127.0.0.1:8000/api/ai/process", content);
             if (!response.IsSuccessStatusCode)
-            {
                 throw new Exception($"Python AI Service failed with status code: {response.StatusCode}");
-            }
 
             var responseString = await response.Content.ReadAsStringAsync();
             using var jsonDoc = JsonDocument.Parse(responseString);
             var aiResponseText = jsonDoc.RootElement.GetProperty("ai_text").GetString();
+            if (string.IsNullOrWhiteSpace(aiResponseText))
+                throw new InvalidOperationException("Python AI Service returned an empty response.");
 
-            // 5. Save the AI response to the Database
-            var aiTurn = new DialogueTurn
+            _context.DialogueTurns.Add(new DialogueTurn
             {
                 SessionId = dto.SessionId,
                 Speaker = SpeakerType.AI_Socratic,
-                Text = aiResponseText!,
+                Text = aiResponseText,
                 Timestamp = DateTime.UtcNow
-            };
-            
-            _context.DialogueTurns.Add(aiTurn);
+            });
             await _context.SaveChangesAsync();
 
-            return aiResponseText!;
+            return new SessionTurnResponseDto
+            {
+                Transcript = studentText,
+                AiText = aiResponseText
+            };
         }
 
         public async Task<StudySession> GetSessionHistoryAsync(Guid sessionId)
