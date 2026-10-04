@@ -5,7 +5,7 @@ import MasteryChart from '../components/MasteryChart';
 import useApprovals from '../hooks/useApprovals';
 
 const idOf = (item) => item.id ?? item.approvalId ?? item.planId;
-const nameOf = (item) => item.studentName ?? `Student ${item.studentId ?? ''}`.trim();
+const nameOf = (item) => item.studentName || item.studentEmail || `Student ${String(item.studentId ?? '').slice(0, 8)}`;
 const moduleOf = (item) => item.courseModule ?? item.module ?? 'Unassigned module';
 const scoreOf = (item) => Number(item.masteryScore ?? item.score ?? 0);
 

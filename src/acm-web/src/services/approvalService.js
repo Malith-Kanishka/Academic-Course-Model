@@ -1,5 +1,7 @@
 import apiClient from './apiClient';
 
+/** @typedef {{ studentName?: string, studentEmail?: string }} RemedialPlan */
+
 const unwrap = (response) => response?.data ?? response ?? [];
 
 const normalizePlan = (plan) => {
@@ -15,7 +17,8 @@ const normalizePlan = (plan) => {
     approvalId: id,
     planId: id,
     studentId: plan.studentId ?? plan.StudentId,
-    studentName: plan.studentName ?? plan.StudentName ?? `Student ${plan.studentId ?? plan.StudentId ?? ''}`.trim(),
+    studentName: plan.studentName ?? plan.StudentName,
+    studentEmail: plan.studentEmail ?? plan.StudentEmail,
     module: plan.module ?? plan.Module ?? report.topicName ?? report.TopicName ?? 'Unassigned module',
     courseModule: plan.courseModule ?? plan.CourseModule ?? report.topicName ?? report.TopicName ?? 'Unassigned module',
     date: plan.date ?? plan.Date ?? plan.createdAt ?? plan.CreatedAt,

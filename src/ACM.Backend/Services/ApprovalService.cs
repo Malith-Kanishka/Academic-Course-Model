@@ -62,8 +62,22 @@ public class ApprovalService : IApprovalService
     public async Task<IEnumerable<RemedialPlan>> GetPendingApprovalsAsync()
     {
         return await _context.RemedialPlans
+            .AsNoTracking()
+            .Include(plan => plan.Student)
             .Include(plan => plan.MasteryReport)
             .Where(plan => plan.ApprovalStatus == "PAUSED_FOR_PROFESSOR_APPROVAL")
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<ApprovalLog>> GetApprovalHistoryAsync()
+    {
+        return await _context.ApprovalLogs
+            .AsNoTracking()
+            .Include(log => log.Plan)
+                .ThenInclude(plan => plan!.Student)
+            .Include(log => log.Plan)
+                .ThenInclude(plan => plan!.MasteryReport)
+            .OrderByDescending(log => log.Timestamp)
             .ToListAsync();
     }
 
@@ -77,6 +91,15 @@ public class ApprovalService : IApprovalService
                 && plan.ApprovedAt.Value >= DateTime.UtcNow.AddDays(-7))
             .OrderByDescending(plan => plan.ApprovedAt)
             .ToListAsync();
+    }
+
+    public Task<string?> GetStudentEmailAsync(Guid studentId)
+    {
+        return _context.Users
+            .AsNoTracking()
+            .Where(user => user.Id == studentId)
+            .Select(user => user.Email)
+            .FirstOrDefaultAsync();
     }
 
     public async Task<RemedialPlan?> SubmitProfessorDecisionAsync(

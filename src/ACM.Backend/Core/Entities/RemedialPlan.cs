@@ -17,4 +17,5 @@ public class RemedialPlan
 
     // Navigation Property
     public MasteryReport? MasteryReport { get; set; }
+    public User? Student { get; set; }
 }

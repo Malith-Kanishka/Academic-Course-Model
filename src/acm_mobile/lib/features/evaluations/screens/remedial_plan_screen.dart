@@ -102,7 +102,12 @@ class _RemedialPlanScreenState extends State<RemedialPlanScreen> {
     final plan = widget.plan ?? const <String, dynamic>{};
     final report = _map(plan['masteryReport']);
     final misconceptions = _list(report['flaggedMisconceptions']);
-    final actionItems = activePlan?.actionItems ?? _list(plan['actionItems']);
+    final rawActionItems = activePlan?.actionItems ??
+        _list(plan['actionItems']).map((item) => item.toString()).toList();
+    final actionItems = ActiveRemedialPlanSummary.completeActionItems(
+      rawActionItems,
+    );
+    final actionItemCount = actionItems.length;
     final rawScore = report['masteryScore'] ?? plan['masteryScore'];
     final score = activePlan?.masteryScore ??
         (rawScore == null ? null : _number(rawScore));
@@ -242,7 +247,9 @@ class _RemedialPlanScreenState extends State<RemedialPlanScreen> {
             child: ExpansionTile(
               leading: const Icon(Icons.route_rounded, color: AppTheme.indigo),
               title: const Text('7-day study plan'),
-              subtitle: Text('${actionItems.length} recommended steps'),
+              subtitle: Text(
+                '$actionItemCount recommended ${actionItemCount == 1 ? 'step' : 'steps'}',
+              ),
               childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               children: actionItems.isEmpty
                   ? [
