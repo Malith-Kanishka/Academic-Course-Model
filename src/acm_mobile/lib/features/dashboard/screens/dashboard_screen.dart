@@ -59,22 +59,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  CourseTopic? _topicForPlan(
-    ActiveRemedialPlanSummary plan,
-    List<CourseModule> modules,
-  ) {
-    for (final module in modules) {
-      for (final topic in module.topics) {
-        if (topic.title.toLowerCase() == plan.topicName.toLowerCase()) {
-          return topic;
-        }
-      }
-    }
-    return null;
-  }
-
   void _openArena(CourseTopic? topic) {
     context.go('/arena', extra: topic);
+  }
+
+  void _openRemedialPlan(ActiveRemedialPlanSummary plan) {
+    context.go('/remedial-plan', extra: {'activePlan': plan});
   }
 
   @override
@@ -174,9 +164,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 14),
             ActiveRemedialProgressBanner(
               plan: activePlans.first,
-              onContinue: () => _openArena(
-                _topicForPlan(activePlans.first, modules),
-              ),
+              onContinue: () => _openRemedialPlan(activePlans.first),
             ),
           ],
           const SizedBox(height: 14),
@@ -188,7 +176,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 14),
           StudyCalendarAgenda(
             plans: activePlans,
-            onLaunchPlan: (plan) => _openArena(_topicForPlan(plan, modules)),
+            onLaunchPlan: _openRemedialPlan,
           ),
           if (!curriculum.isLoading && modules.isEmpty) ...[
             const SizedBox(height: 8),

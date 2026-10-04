@@ -12,6 +12,10 @@ import logging
 import os
 from typing import Any, Dict, List, Set
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sentence_transformers import SentenceTransformer
@@ -49,8 +53,12 @@ async def lifespan(app: FastAPI):
     else:
         try:
             # Pre-instantiate and warm up Groq model
-            model_name = os.getenv("GROQ_MODEL_NAME", "llama-3.3-70b-versatile")
-            groq_llm = ChatGroq(groq_api_key=groq_api_key, model_name=model_name)
+            model_name = (
+                os.getenv("GROQ_MODEL")
+                or os.getenv("GROQ_MODEL_NAME")
+                or "openai/gpt-oss-20b"
+            )
+            groq_llm = ChatGroq(groq_api_key=groq_api_key, model=model_name)
             
             # Attach to socratic_agent if supported
             if hasattr(socratic_agent, "llm"):

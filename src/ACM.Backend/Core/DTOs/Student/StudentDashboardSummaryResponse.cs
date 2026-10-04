@@ -13,4 +13,6 @@ public sealed record ActiveRemedialPlanSummaryResponse(
     string TopicName,
     int DayOfPlan,
     DateTimeOffset ApprovedAt,
-    IReadOnlyList<string> ActionItems);
+    IReadOnlyList<string> ActionItems,
+    int? MasteryScore,
+    string? ProfessorNotes);

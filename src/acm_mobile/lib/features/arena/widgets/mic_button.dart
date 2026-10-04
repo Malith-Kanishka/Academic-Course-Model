@@ -4,27 +4,33 @@ import '../../../core/theme/app_theme.dart';
 class MicButton extends StatelessWidget {
   const MicButton({
     required this.isRecording,
+    this.enabled = true,
     required this.onTapDown,
     required this.onTapUp,
     super.key,
   });
 
   final bool isRecording;
+  final bool enabled;
   final VoidCallback onTapDown;
   final VoidCallback onTapUp;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: (_) => onTapDown(),
-      onTapUp: (_) => onTapUp(),
-      onTapCancel: () => onTapUp(),
+      onTapDown: enabled ? (_) => onTapDown() : null,
+      onTapUp: enabled ? (_) => onTapUp() : null,
+      onTapCancel: enabled ? onTapUp : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         width: isRecording ? 80 : 70,
         height: isRecording ? 80 : 70,
         decoration: BoxDecoration(
-          color: isRecording ? AppTheme.danger : AppTheme.primaryBlue,
+          color: !enabled
+              ? AppTheme.textMuted.withValues(alpha: 0.4)
+              : isRecording
+                  ? AppTheme.danger
+                  : AppTheme.primaryBlue,
           shape: BoxShape.circle,
           boxShadow: isRecording
               ? [
@@ -36,9 +42,9 @@ class MicButton extends StatelessWidget {
                 ]
               : null,
         ),
-        child: const Icon(
+        child: Icon(
           Icons.mic_rounded,
-          color: Colors.white,
+          color: enabled ? Colors.white : Colors.white70,
           size: 32,
         ),
       ),

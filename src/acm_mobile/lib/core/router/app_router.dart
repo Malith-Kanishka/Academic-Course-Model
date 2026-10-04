@@ -14,6 +14,7 @@ import '../../features/curriculum/models/course_module.dart';
 import '../../features/curriculum/screens/courses_screen.dart';
 import '../../features/curriculum/state/curriculum_controller.dart';
 import '../../features/dashboard/screens/dashboard_screen.dart';
+import '../../features/dashboard/models/student_dashboard_summary.dart';
 import '../../features/remediation/screens/feedback_dashboard_screen.dart';
 import '../../features/remediation/state/remediation_controller.dart';
 import '../../features/remediation/services/remediation_service.dart';
@@ -38,10 +39,15 @@ abstract final class AppRouter {
               role.contains('lecturer') ||
               role.contains('professor') ||
               role == '1';
+          final extra = state.extra;
+          final isStudentPlanDetails = path == '/remedial-plan' &&
+              extra is Map &&
+              extra['activePlan'] is ActiveRemedialPlanSummary;
           if (!isLoggedIn && path != '/login') return '/login';
           if (isLoggedIn && path == '/login') return '/dashboard';
           if (path == '/admin/users' && !isDepartmentHead) return '/dashboard';
-          if ((path == '/evaluations' || path == '/remedial-plan') &&
+          if ((path == '/evaluations' ||
+                  (path == '/remedial-plan' && !isStudentPlanDetails)) &&
               !canReviewApprovals) {
             return '/dashboard';
           }
@@ -82,9 +88,16 @@ abstract final class AppRouter {
           GoRoute(
             path: '/arena',
             builder: (context, state) {
-              final topic = state.extra is CourseTopic
-                  ? state.extra as CourseTopic
-                  : null;
+              final extra = state.extra;
+              final args = extra is Map
+                  ? Map<String, dynamic>.from(extra)
+                  : const <String, dynamic>{};
+              final topic = extra is CourseTopic
+                  ? extra
+                  : args['topic'] is CourseTopic
+                      ? args['topic'] as CourseTopic
+                      : null;
+              final rawActionItems = args['actionItems'];
               return MultiProvider(
                 providers: [
                   Provider(create: (_) => ArenaRepository()),
@@ -92,7 +105,15 @@ abstract final class AppRouter {
                     create: (_) => CurriculumController(CurriculumRepository()),
                   ),
                 ],
-                child: ArenaScreen(initialTopic: topic),
+                child: ArenaScreen(
+                  initialTopic: topic,
+                  remedialPlanId: args['planId']?.toString(),
+                  remedialTopicName: args['topicName']?.toString(),
+                  remedialActionItems: rawActionItems is List
+                      ? rawActionItems.map((item) => item.toString()).toList()
+                      : const [],
+                  startImmediately: args['startImmediately'] == true,
+                ),
               );
             },
           ),
@@ -123,12 +144,23 @@ abstract final class AppRouter {
           GoRoute(
             path: '/remedial-plan',
             builder: (context, state) {
-              final args = state.extra as Map<String, dynamic>? ?? {};
-              final plan = args['plan'] as Map<String, dynamic>? ?? {};
-              final controller = args['controller'] as EvaluationController;
+              final args = state.extra is Map
+                  ? Map<String, dynamic>.from(state.extra as Map)
+                  : const <String, dynamic>{};
+              final rawPlan = args['plan'];
+              final plan =
+                  rawPlan is Map ? Map<String, dynamic>.from(rawPlan) : null;
+              final rawActivePlan = args['activePlan'];
+              final activePlan = rawActivePlan is ActiveRemedialPlanSummary
+                  ? rawActivePlan
+                  : null;
+              final rawController = args['controller'];
+              final controller =
+                  rawController is EvaluationController ? rawController : null;
               return RemedialPlanScreen(
                 plan: plan,
                 controller: controller,
+                activePlan: activePlan,
               );
             },
           ),

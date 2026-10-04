@@ -16,7 +16,7 @@ class ArenaRepository {
     return response.data ?? <String, dynamic>{};
   }
 
-  Future<String> sendTurn({
+  Future<Map<String, dynamic>> sendTurn({
     required String sessionId,
     required String studentText,
   }) async {
@@ -24,10 +24,12 @@ class ArenaRepository {
       '/sessions/turn',
       data: {'sessionId': sessionId, 'studentText': studentText},
     );
-    final text = response.data?['aiText']?.toString();
+    final result = response.data ?? <String, dynamic>{};
+    final text =
+        (result['aiText'] ?? result['AiText'] ?? result['message'])?.toString();
     if (text == null || text.isEmpty) {
       throw const FormatException('The AI service returned an empty response.');
     }
-    return text;
+    return result;
   }
 }

@@ -79,7 +79,11 @@ public class ApprovalService : IApprovalService
             .ToListAsync();
     }
 
-    public async Task<RemedialPlan?> SubmitProfessorDecisionAsync(Guid planId, string status, string? notes)
+    public async Task<RemedialPlan?> SubmitProfessorDecisionAsync(
+        Guid planId,
+        string status,
+        string? notes,
+        string? editedPlanSummary)
     {
         var plan = await _context.RemedialPlans
             .FirstOrDefaultAsync(p => p.Id == planId);
@@ -87,6 +91,12 @@ public class ApprovalService : IApprovalService
 
         plan.ApprovalStatus = status; // Expected: "APPROVED_ACTIVE" or "REJECTED"
         plan.ProfessorNotes = notes;
+        if (editedPlanSummary is not null)
+        {
+            plan.ActionItems = editedPlanSummary
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+        }
         plan.ApprovedAt = DateTime.UtcNow;
         plan.UpdatedAt = DateTime.UtcNow;
         _context.ApprovalLogs.Add(new ApprovalLog
