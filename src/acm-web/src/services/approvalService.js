@@ -45,14 +45,16 @@ const approvalService = {
     return normalizeList(unwrap(response));
   },
 
-  async submitDecision(id, decision, feedback = '') {
+  async submitDecision(id, decision, { editedPlanSummary, lecturerNotes } = {}) {
     const status = decision === 'Approved' ? 'APPROVED_ACTIVE' : 'REJECTED';
     const response = await apiClient.post('/Approval/decision', {
       planId: id,
       status,
-      notes: feedback || null,
+      editedPlanSummary: editedPlanSummary ?? null,
+      lecturerNotes: lecturerNotes || null,
+      notes: lecturerNotes || null,
       decision,
-      professorFeedback: feedback || null,
+      professorFeedback: lecturerNotes || null,
     });
     return normalizePlan(unwrap(response));
   },

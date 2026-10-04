@@ -92,7 +92,8 @@ public class ApprovalController : ControllerBase
         var updatedPlan = await _approvalService.SubmitProfessorDecisionAsync(
             decision.PlanId, 
             decision.Status, 
-            decision.Notes
+            decision.LecturerNotes ?? decision.Notes,
+            decision.EditedPlanSummary
         );
 
         if (updatedPlan == null) return NotFound("Remedial plan not found.");

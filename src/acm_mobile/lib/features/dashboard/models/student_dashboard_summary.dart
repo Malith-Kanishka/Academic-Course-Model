@@ -42,6 +42,8 @@ class ActiveRemedialPlanSummary {
     required this.dayOfPlan,
     required this.approvedAt,
     required this.actionItems,
+    this.masteryScore,
+    this.professorNotes,
   });
 
   final String id;
@@ -49,6 +51,8 @@ class ActiveRemedialPlanSummary {
   final int dayOfPlan;
   final DateTime approvedAt;
   final List<String> actionItems;
+  final int? masteryScore;
+  final String? professorNotes;
 
   factory ActiveRemedialPlanSummary.fromJson(Map<String, dynamic> json) {
     final rawApprovedAt = json['approvedAt'] ?? json['ApprovedAt'];
@@ -64,6 +68,13 @@ class ActiveRemedialPlanSummary {
       actionItems: rawActionItems is List
           ? rawActionItems.map((item) => item.toString()).toList()
           : const [],
+      masteryScore: (json['masteryScore'] ?? json['MasteryScore']) is num
+          ? ((json['masteryScore'] ?? json['MasteryScore']) as num).round()
+          : int.tryParse(
+              (json['masteryScore'] ?? json['MasteryScore'] ?? '').toString(),
+            ),
+      professorNotes:
+          (json['professorNotes'] ?? json['ProfessorNotes'])?.toString(),
     );
   }
 

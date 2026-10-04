@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -17,9 +18,20 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import '_path_helper_stub.dart' if (dart.library.io) '_path_helper_native.dart';
 
 class ArenaScreen extends StatefulWidget {
-  const ArenaScreen({super.key, this.initialTopic});
+  const ArenaScreen({
+    super.key,
+    this.initialTopic,
+    this.remedialPlanId,
+    this.remedialTopicName,
+    this.remedialActionItems = const [],
+    this.startImmediately = false,
+  });
 
   final CourseTopic? initialTopic;
+  final String? remedialPlanId;
+  final String? remedialTopicName;
+  final List<String> remedialActionItems;
+  final bool startImmediately;
 
   @override
   State<ArenaScreen> createState() => _ArenaScreenState();
@@ -33,8 +45,12 @@ class _ArenaScreenState extends State<ArenaScreen> {
   CourseTopic? _selectedTopic;
   bool _sessionStarted = false;
   bool _starting = false;
+  bool _loadingInitialRemedialSession = false;
   bool _sending = false;
   bool _backendSession = false;
+  bool _isRemedialFallback = false;
+  bool _isCompleted = false;
+  int _turnCount = 0;
   String? _sessionId;
   String? _sessionNotice;
 
@@ -49,8 +65,12 @@ class _ArenaScreenState extends State<ArenaScreen> {
   void initState() {
     super.initState();
     _selectedTopic = widget.initialTopic;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<CurriculumController>().loadModules();
+    _loadingInitialRemedialSession = widget.startImmediately;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await context.read<CurriculumController>().loadModules();
+      if (!mounted || !widget.startImmediately) return;
+      await _startSession();
     });
 
     _setupAudioListeners();
@@ -100,20 +120,22 @@ class _ArenaScreenState extends State<ArenaScreen> {
   }
 
   Future<void> _startRecording() async {
-    if (_sending) return;
+    if (_sending || _isCompleted) return;
     await _audioPlayer.stop();
     await _speech.stop();
     if (mounted) setState(() => _isAgentSpeaking = false);
-    
+
     final status = await Permission.microphone.request();
     if (status != PermissionStatus.granted) return;
 
     if (await _audioRecorder.hasPermission()) {
       if (kIsWeb) {
-        await _audioRecorder.start(const RecordConfig(encoder: AudioEncoder.opus), path: '');
+        await _audioRecorder
+            .start(const RecordConfig(encoder: AudioEncoder.opus), path: '');
       } else {
         final String p = await getAudioTempPath();
-        await _audioRecorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: p);
+        await _audioRecorder
+            .start(const RecordConfig(encoder: AudioEncoder.aacLc), path: p);
       }
       setState(() {
         _isRecording = true;
@@ -140,12 +162,13 @@ class _ArenaScreenState extends State<ArenaScreen> {
     if (!_isRecording) return;
     setState(() => _isRecording = false);
     final path = await _audioRecorder.stop();
-    if (path != null) {
+    if (path != null && !_isCompleted) {
       _sendAudio(path);
     }
   }
 
   Future<void> _sendAudio(String path) async {
+    if (_isCompleted || _sending) return;
     setState(() {
       _sending = true;
       _sessionNotice = 'Analyzing speech...';
@@ -156,13 +179,18 @@ class _ArenaScreenState extends State<ArenaScreen> {
           sessionId: _sessionId!,
           audioPath: path,
         );
+        final aiText = response['aiText']?.toString() ?? '';
         setState(() {
-          _messages.add(_DialogueMessage(text: response['transcript']?.toString() ?? '', fromGuide: false));
-          _messages.add(_DialogueMessage(text: response['aiText']?.toString() ?? '', fromGuide: true));
-          _sessionNotice = 'AI response received.';
+          _messages.add(_DialogueMessage(
+              text: response['transcript']?.toString() ?? '',
+              fromGuide: false));
+          _messages.add(_DialogueMessage(text: aiText, fromGuide: true));
+          _recordAssistantTurn(aiText, response);
+          _sessionNotice =
+              _isCompleted ? 'Session complete.' : 'AI response received.';
         });
         _scrollToBottom();
-        await _speakResponse(response['aiText']?.toString() ?? '');
+        await _speakResponse(aiText);
         if (response['audioUrl'] != null) {
           await _audioPlayer.play(UrlSource(response['audioUrl']));
         }
@@ -173,6 +201,7 @@ class _ArenaScreenState extends State<ArenaScreen> {
           _messages.add(const _DialogueMessage(
               text: 'I heard you! This is a simulated response.',
               fromGuide: true));
+          _recordAssistantTurn('I heard you! This is a simulated response.');
           _sessionNotice = 'Practice dialogue';
         });
         _scrollToBottom();
@@ -186,9 +215,29 @@ class _ArenaScreenState extends State<ArenaScreen> {
 
   Future<void> _sendTypedMessage() async {
     final text = _messageController.text.trim();
-    if (text.isEmpty || _sending) return;
+    if (text.isEmpty || _sending || _isCompleted) return;
+    if (_isRemedialFallback) {
+      _messageController.clear();
+      final tasks = widget.remedialActionItems;
+      final task = tasks.isEmpty
+          ? 'your understanding of ${widget.remedialTopicName ?? 'this topic'}'
+          : tasks[_turnCount % tasks.length];
+      final response =
+          'Let us work through this remedial task: $task. What is your reasoning?';
+      setState(() {
+        _messages.add(_DialogueMessage(text: text, fromGuide: false));
+        _messages.add(_DialogueMessage(text: response, fromGuide: true));
+        _recordAssistantTurn(response);
+        _sessionNotice =
+            _isCompleted ? 'Session complete.' : 'Guided remedial practice';
+      });
+      _scrollToBottom();
+      await _speakResponse(response);
+      return;
+    }
     if (!_backendSession || _sessionId == null) {
-      setState(() => _sessionNotice = 'Connect a backend session before sending.');
+      setState(
+          () => _sessionNotice = 'Connect a backend session before sending.');
       return;
     }
 
@@ -200,22 +249,47 @@ class _ArenaScreenState extends State<ArenaScreen> {
     });
     _scrollToBottom();
     try {
-      final response = await context.read<ArenaRepository>().sendTurn(
+      final result = await context.read<ArenaRepository>().sendTurn(
             sessionId: _sessionId!,
             studentText: text,
           );
       if (!mounted) return;
+      final response =
+          (result['aiText'] ?? result['AiText'] ?? result['message'] ?? '')
+              .toString();
+      if (response.trim().isEmpty) {
+        throw const FormatException(
+            'The AI service returned an empty response.');
+      }
       setState(() {
         _messages.add(_DialogueMessage(text: response, fromGuide: true));
-        _sessionNotice = 'AI response received.';
+        _recordAssistantTurn(response, result);
+        _sessionNotice =
+            _isCompleted ? 'Session complete.' : 'AI response received.';
       });
       _scrollToBottom();
       await _speakResponse(response);
     } catch (_) {
-      if (mounted) setState(() => _sessionNotice = 'Message could not be sent.');
+      if (mounted) {
+        setState(() => _sessionNotice = 'Message could not be sent.');
+      }
     } finally {
-      if (mounted) setState(() => _sending = false);
+      if (mounted) {
+        setState(() => _sending = false);
+      }
     }
+  }
+
+  void _recordAssistantTurn(String response, [Map<String, dynamic>? payload]) {
+    _turnCount += 1;
+    final completionMessage = response.toLowerCase().contains(
+          'we have reached the end of our session',
+        );
+    final completionFlag = payload?['isCompleted'] == true ||
+        payload?['completed'] == true ||
+        payload?['sessionCompleted'] == true ||
+        payload?['sessionStatus']?.toString().toLowerCase() == 'completed';
+    _isCompleted = _turnCount >= 10 || completionMessage || completionFlag;
   }
 
   Future<void> _speakResponse(String text) async {
@@ -228,32 +302,50 @@ class _ArenaScreenState extends State<ArenaScreen> {
   }
 
   Future<void> _startSession() async {
-    final topic = _selectedTopic;
-    if (topic == null) return;
     final enrolledTopics = context
         .read<CurriculumController>()
         .modules
-        .expand((module) => module.topics);
-    if (!enrolledTopics.any((item) => item.id == topic.id)) {
+        .expand((module) => module.topics)
+        .toList();
+    final matchedRemedialTopic = widget.startImmediately
+        ? _matchRemedialTopic(enrolledTopics, widget.remedialTopicName)
+        : null;
+    final isRemedialFallback =
+        widget.startImmediately && matchedRemedialTopic == null;
+    final topic = widget.startImmediately
+        ? matchedRemedialTopic ?? _createRemedialFallbackTopic()
+        : _selectedTopic;
+    if (topic == null) {
+      return;
+    }
+    final selectedTopic = topic;
+    if (!isRemedialFallback &&
+        !enrolledTopics.any((item) => item.id == selectedTopic.id)) {
       setState(() {
         _selectedTopic = null;
+        _loadingInitialRemedialSession = false;
         _sessionNotice = 'Choose a topic from your enrolled modules.';
       });
       return;
     }
     setState(() {
+      _selectedTopic = selectedTopic;
+      _isRemedialFallback = isRemedialFallback;
       _starting = true;
+      _loadingInitialRemedialSession = false;
+      _turnCount = 0;
+      _isCompleted = false;
       _sessionNotice = null;
     });
     final user = context.read<AuthController>().user ?? const {};
     final studentId = (user['id'] ?? user['userId'] ?? user['sub']).toString();
     final isUuid = RegExp(r'^[0-9a-fA-F-]{36}$').hasMatch(studentId);
-    final isMockTopic = topic.id.startsWith('sample-');
+    final isMockTopic = selectedTopic.id.startsWith('sample-');
     try {
-      if (isUuid && !isMockTopic) {
+      if (isUuid && !isMockTopic && !isRemedialFallback) {
         final response = await context.read<ArenaRepository>().startSession(
               studentId: studentId,
-              topicId: topic.id,
+              topicId: selectedTopic.id,
             );
         _sessionId = (response['id'] ?? response['sessionId'] ?? response['Id'])
             ?.toString();
@@ -262,7 +354,9 @@ class _ArenaScreenState extends State<ArenaScreen> {
             ? 'Session connected to the ACM backend.'
             : 'Practice session started.';
       } else {
-        _sessionNotice = 'Practice session started.';
+        _sessionNotice = isRemedialFallback
+            ? 'Guided remedial practice started.'
+            : 'Practice session started.';
       }
     } catch (_) {
       _sessionNotice =
@@ -273,14 +367,56 @@ class _ArenaScreenState extends State<ArenaScreen> {
       _sessionStarted = true;
       _starting = false;
       _messages.add(_DialogueMessage(
-        text:
-            'Let us explore ${topic.title}. ${topic.description.isNotEmpty ? topic.description : 'What do you already understand about this topic?'}',
+        text: widget.startImmediately
+            ? _remedialOpeningPrompt(selectedTopic)
+            : 'Let us explore ${selectedTopic.title}. ${selectedTopic.description.isNotEmpty ? selectedTopic.description : 'What do you already understand about this topic?'}',
         fromGuide: true,
       ));
     });
     _scrollToBottom();
     // Initially speak the first greeting if possible
     await _speakResponse(_messages.last.text);
+  }
+
+  CourseTopic? _matchRemedialTopic(
+    Iterable<CourseTopic> topics,
+    String? remedialTopicName,
+  ) {
+    final requestedName = remedialTopicName?.trim().toLowerCase() ?? '';
+    if (requestedName.isEmpty) return null;
+
+    final normalizedTopics = topics
+        .map((topic) => (topic: topic, title: topic.title.trim().toLowerCase()))
+        .where((entry) => entry.title.isNotEmpty)
+        .toList();
+    for (final entry in normalizedTopics) {
+      if (entry.title == requestedName) return entry.topic;
+    }
+    for (final entry in normalizedTopics) {
+      if (entry.title.contains(requestedName) ||
+          requestedName.contains(entry.title)) {
+        return entry.topic;
+      }
+    }
+    return null;
+  }
+
+  CourseTopic _createRemedialFallbackTopic() {
+    final topicName = widget.remedialTopicName?.trim();
+    return CourseTopic(
+      id: widget.remedialPlanId?.trim().isNotEmpty == true
+          ? widget.remedialPlanId!.trim()
+          : 'remedial_topic',
+      title: topicName?.isNotEmpty == true ? topicName! : 'Remedial practice',
+      description: widget.remedialActionItems.join('\n'),
+    );
+  }
+
+  String _remedialOpeningPrompt(CourseTopic topic) {
+    final firstTask = widget.remedialActionItems.isEmpty
+        ? 'What do you already understand about this topic?'
+        : 'Start with this task: ${widget.remedialActionItems.first}';
+    return 'Let us continue your remedial practice on ${topic.title}. $firstTask';
   }
 
   @override
@@ -312,7 +448,8 @@ class _ArenaScreenState extends State<ArenaScreen> {
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withValues(alpha: .12)),
+                  border:
+                      Border.all(color: Colors.white.withValues(alpha: .12)),
                 ),
                 child: Row(
                   children: [
@@ -323,7 +460,8 @@ class _ArenaScreenState extends State<ArenaScreen> {
                         color: Colors.white.withValues(alpha: .16),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: const Icon(Icons.psychology_alt_rounded, color: Colors.white, size: 28),
+                      child: const Icon(Icons.psychology_alt_rounded,
+                          color: Colors.white, size: 28),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -331,8 +469,12 @@ class _ArenaScreenState extends State<ArenaScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('Socratic Arena',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  color: Colors.white, fontWeight: FontWeight.w800)),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800)),
                           const SizedBox(height: 4),
                           Text('Practice by reasoning aloud',
                               style: TextStyle(
@@ -345,12 +487,56 @@ class _ArenaScreenState extends State<ArenaScreen> {
                 ),
               ),
             ),
-    
+
             // Body Content
             Expanded(
               child: _sessionStarted
                   ? _buildSessionDialogue()
-                  : _buildTopicSelection(curriculum, topics, topic),
+                  : widget.startImmediately
+                      ? _loadingInitialRemedialSession || _starting
+                          ? _buildRemedialLaunchProgress()
+                          : _buildRemedialLaunchError()
+                      : _buildTopicSelection(curriculum, topics, topic),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRemedialLaunchProgress() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(height: 14),
+          Text(
+              'Opening remedial practice for ${widget.remedialTopicName ?? widget.initialTopic?.title ?? 'your active plan'}...'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRemedialLaunchError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.info_outline_rounded, size: 36),
+            const SizedBox(height: 12),
+            Text(
+              _sessionNotice ??
+                  'This plan topic is not available in your enrolled modules.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () => context.go('/courses'),
+              icon: const Icon(Icons.menu_book_rounded),
+              label: const Text('View Modules'),
             ),
           ],
         ),
@@ -361,15 +547,58 @@ class _ArenaScreenState extends State<ArenaScreen> {
   Widget _buildSessionDialogue() {
     return Column(
       children: [
+        if (widget.remedialPlanId != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'REMEDIAL PLAN',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppTheme.primaryBlue,
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.remedialTopicName ??
+                        widget.initialTopic?.title ??
+                        'Practice',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  if (widget.remedialActionItems.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    for (final task in widget.remedialActionItems)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Text('• $task'),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           child: Row(
             children: [
               Expanded(
                 child: Text('Dialogue',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800
-                    )),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800)),
               ),
               if (_sessionNotice != null)
                 Text(_sessionNotice!,
@@ -380,7 +609,7 @@ class _ArenaScreenState extends State<ArenaScreen> {
             ],
           ),
         ),
-        
+
         Expanded(
           child: ListView.builder(
             controller: _scrollController,
@@ -425,13 +654,13 @@ class _ArenaScreenState extends State<ArenaScreen> {
             },
           ),
         ),
-        
+
         if (_sending)
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20, vertical: 4),
             child: LinearProgressIndicator(),
           ),
-          
+
         // Input Area
         Material(
           color: Theme.of(context).scaffoldBackgroundColor,
@@ -456,7 +685,7 @@ class _ArenaScreenState extends State<ArenaScreen> {
                       Expanded(
                         child: TextField(
                           controller: _messageController,
-                          enabled: !_sending && !_isRecording,
+                          enabled: !_sending && !_isRecording && !_isCompleted,
                           textInputAction: TextInputAction.send,
                           onSubmitted: (_) => _sendTypedMessage(),
                           maxLines: null,
@@ -464,15 +693,18 @@ class _ArenaScreenState extends State<ArenaScreen> {
                             hintText: 'Type your answer...',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(24),
-                              borderSide: const BorderSide(color: AppTheme.border),
+                              borderSide:
+                                  const BorderSide(color: AppTheme.border),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(24),
-                              borderSide: const BorderSide(color: AppTheme.border),
+                              borderSide:
+                                  const BorderSide(color: AppTheme.border),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(24),
-                              borderSide: const BorderSide(color: AppTheme.primaryBlue),
+                              borderSide:
+                                  const BorderSide(color: AppTheme.primaryBlue),
                             ),
                             contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 12),
@@ -483,6 +715,7 @@ class _ArenaScreenState extends State<ArenaScreen> {
                       const SizedBox(width: 8),
                       MicButton(
                         isRecording: _isRecording,
+                        enabled: !_sending && !_isCompleted,
                         onTapDown: _startRecording,
                         onTapUp: _stopRecordingAndSend,
                       ),
@@ -496,18 +729,32 @@ class _ArenaScreenState extends State<ArenaScreen> {
                         ),
                         child: IconButton(
                           tooltip: 'Send answer',
-                          onPressed: _sending || _isRecording ? null : _sendTypedMessage,
+                          onPressed: _sending || _isRecording || _isCompleted
+                              ? null
+                              : _sendTypedMessage,
                           icon: _sending
                               ? const SizedBox.square(
                                   dimension: 18,
                                   child: CircularProgressIndicator(
                                       strokeWidth: 2, color: Colors.white),
                                 )
-                              : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                              : const Icon(Icons.send_rounded,
+                                  color: Colors.white, size: 20),
                         ),
                       ),
                     ],
                   ),
+                  if (_isCompleted) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () => context.go('/courses'),
+                        icon: const Icon(Icons.menu_book_rounded),
+                        label: const Text('Back to Modules'),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -517,13 +764,14 @@ class _ArenaScreenState extends State<ArenaScreen> {
     );
   }
 
-  Widget _buildTopicSelection(
-      CurriculumController curriculum, List<CourseTopic> topics, CourseTopic? topic) {
+  Widget _buildTopicSelection(CurriculumController curriculum,
+      List<CourseTopic> topics, CourseTopic? topic) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
       children: [
         Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -574,9 +822,10 @@ class _ArenaScreenState extends State<ArenaScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    onPressed: topic == null || curriculum.isLoading || _starting
-                        ? null
-                        : _startSession,
+                    onPressed:
+                        topic == null || curriculum.isLoading || _starting
+                            ? null
+                            : _startSession,
                     icon: _starting
                         ? const SizedBox.square(
                             dimension: 18,
@@ -593,9 +842,10 @@ class _ArenaScreenState extends State<ArenaScreen> {
         ),
         const SizedBox(height: 24),
         Text('Available topics',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w800
-            )),
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w800)),
         const SizedBox(height: 12),
         if (curriculum.isLoading && topics.isEmpty)
           const Center(
@@ -617,7 +867,8 @@ class _ArenaScreenState extends State<ArenaScreen> {
                 ),
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   leading: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -627,7 +878,8 @@ class _ArenaScreenState extends State<ArenaScreen> {
                     child: const Icon(Icons.lightbulb_outline_rounded,
                         color: AppTheme.amber),
                   ),
-                  title: Text(item.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  title: Text(item.title,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: item.description.isEmpty
                       ? null
                       : Text(item.description,
@@ -635,7 +887,8 @@ class _ArenaScreenState extends State<ArenaScreen> {
                   trailing: IconButton(
                     tooltip: 'Select topic',
                     onPressed: () => setState(() => _selectedTopic = item),
-                    icon: const Icon(Icons.arrow_forward_rounded, color: AppTheme.primaryBlue),
+                    icon: const Icon(Icons.arrow_forward_rounded,
+                        color: AppTheme.primaryBlue),
                   ),
                 ),
               )),

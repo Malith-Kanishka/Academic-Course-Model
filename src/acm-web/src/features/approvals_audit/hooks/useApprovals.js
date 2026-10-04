@@ -20,14 +20,17 @@ export default function useApprovals() {
 
 	useEffect(() => { loadApprovals(); }, [loadApprovals]);
 
-	const handleDecision = useCallback(async (id, decision, feedback = '') => {
+	const handleDecision = useCallback(async (id, decision, details = {}) => {
 		const item = pendingApprovals.find((approval) => (approval.id ?? approval.approvalId) === id);
 		if (!item) return;
+		const { editedPlanSummary, lecturerNotes } = typeof details === 'string'
+			? { lecturerNotes: details }
+			: details;
 		setNotice(''); setError('');
 		setPendingApprovals((current) => current.filter((approval) => (approval.id ?? approval.approvalId) !== id));
 		try {
-			const result = await approvalService.submitDecision(id, decision, feedback);
-			setAuditHistory((current) => [{ ...item, ...result, status: decision, feedback, decidedAt: new Date().toISOString() }, ...current]);
+			const result = await approvalService.submitDecision(id, decision, { editedPlanSummary, lecturerNotes });
+			setAuditHistory((current) => [{ ...item, ...result, status: decision, feedback: lecturerNotes, decidedAt: new Date().toISOString() }, ...current]);
 			setNotice(`Plan ${decision.toLowerCase()} successfully.`);
 		} catch (requestError) {
 			setPendingApprovals((current) => [item, ...current]);

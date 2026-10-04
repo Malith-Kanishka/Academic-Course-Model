@@ -79,7 +79,9 @@ public class StudentController : ControllerBase
                     : plan.MasteryReport.TopicName,
                 Math.Clamp(elapsedDays + 1, 1, 7),
                 new DateTimeOffset(approvedAt),
-                plan.ActionItems);
+                plan.ActionItems,
+                plan.MasteryReport?.MasteryScore,
+                plan.ProfessorNotes);
         }).ToList();
 
         return Ok(new StudentDashboardSummaryResponse(

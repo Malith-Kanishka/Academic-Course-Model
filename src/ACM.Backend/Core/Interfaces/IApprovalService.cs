@@ -9,5 +9,9 @@ public interface IApprovalService
     Task<IEnumerable<RemedialPlan>> GetPendingApprovalsAsync();
     /// <summary>Gets active remedial plans belonging to the specified student.</summary>
     Task<IEnumerable<RemedialPlan>> GetActivePlansForStudentAsync(Guid studentId);
-    Task<RemedialPlan?> SubmitProfessorDecisionAsync(Guid planId, string status, string? notes);
+    Task<RemedialPlan?> SubmitProfessorDecisionAsync(
+        Guid planId,
+        string status,
+        string? notes,
+        string? editedPlanSummary);
 }
