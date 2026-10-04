@@ -119,28 +119,52 @@ class _ArenaScreenState extends State<ArenaScreen> {
     });
   }
 
+  Future<void> _toggleRecording() async {
+    if (_isRecording) {
+      await _stopRecordingAndSend();
+    } else {
+      await _startRecording();
+    }
+  }
+
   Future<void> _startRecording() async {
     if (_sending || _isCompleted) return;
-    await _audioPlayer.stop();
-    await _speech.stop();
-    if (mounted) setState(() => _isAgentSpeaking = false);
+    var recordingStarted = false;
+    try {
+      await _audioPlayer.stop();
+      await _speech.stop();
+      if (mounted) setState(() => _isAgentSpeaking = false);
 
-    final status = await Permission.microphone.request();
-    if (status != PermissionStatus.granted) return;
+      final status = await Permission.microphone.request();
+      if (status != PermissionStatus.granted ||
+          !await _audioRecorder.hasPermission()) {
+        _showAudioError('Microphone permission is required to record.');
+        return;
+      }
 
-    if (await _audioRecorder.hasPermission()) {
       if (kIsWeb) {
         await _audioRecorder
             .start(const RecordConfig(encoder: AudioEncoder.opus), path: '');
       } else {
-        final String p = await getAudioTempPath();
-        await _audioRecorder
-            .start(const RecordConfig(encoder: AudioEncoder.aacLc), path: p);
+        final path = await getAudioTempPath();
+        await _audioRecorder.start(
+          const RecordConfig(encoder: AudioEncoder.aacLc),
+          path: path,
+        );
       }
-      setState(() {
-        _isRecording = true;
-      });
+      if (!mounted) return;
+      setState(() => _isRecording = true);
+      recordingStarted = true;
       _startAmplitudeTimer();
+    } catch (error) {
+      _showAudioError('Could not start recording. Check microphone access and try again.');
+    } finally {
+      if (!recordingStarted && mounted) {
+        setState(() {
+          _isRecording = false;
+          _amplitude = 0;
+        });
+      }
     }
   }
 
@@ -160,57 +184,76 @@ class _ArenaScreenState extends State<ArenaScreen> {
 
   Future<void> _stopRecordingAndSend() async {
     if (!_isRecording) return;
-    setState(() => _isRecording = false);
-    final path = await _audioRecorder.stop();
-    if (path != null && !_isCompleted) {
-      _sendAudio(path);
-    }
-  }
-
-  Future<void> _sendAudio(String path) async {
-    if (_isCompleted || _sending) return;
     setState(() {
       _sending = true;
       _sessionNotice = 'Analyzing speech...';
     });
     try {
-      if (_backendSession) {
-        final response = await _audioService.sendAudioTurn(
-          sessionId: _sessionId!,
-          audioPath: path,
-        );
-        final aiText = response['aiText']?.toString() ?? '';
-        setState(() {
-          _messages.add(_DialogueMessage(
-              text: response['transcript']?.toString() ?? '',
-              fromGuide: false));
-          _messages.add(_DialogueMessage(text: aiText, fromGuide: true));
-          _recordAssistantTurn(aiText, response);
-          _sessionNotice =
-              _isCompleted ? 'Session complete.' : 'AI response received.';
-        });
-        _scrollToBottom();
-        await _speakResponse(aiText);
-        if (response['audioUrl'] != null) {
-          await _audioPlayer.play(UrlSource(response['audioUrl']));
-        }
-      } else {
-        setState(() {
-          _messages.add(const _DialogueMessage(
-              text: '(Simulated audio transcript)', fromGuide: false));
-          _messages.add(const _DialogueMessage(
-              text: 'I heard you! This is a simulated response.',
-              fromGuide: true));
-          _recordAssistantTurn('I heard you! This is a simulated response.');
-          _sessionNotice = 'Practice dialogue';
-        });
-        _scrollToBottom();
+      final path = await _audioRecorder.stop();
+      if (path == null || path.isEmpty) {
+        throw StateError('No audio was captured. Please try again.');
       }
-    } catch (e) {
-      if (mounted) setState(() => _sessionNotice = 'Audio upload failed');
+      if (!_isCompleted) await _sendAudio(path);
+    } catch (error) {
+      // ignore: avoid_print
+      print('AUDIO UPLOAD ERROR: $error');
+      if (mounted) setState(() => _sessionNotice = 'Audio upload failed: $error');
+      _showAudioError('Audio upload failed: $error');
     } finally {
-      if (mounted) setState(() => _sending = false);
+      if (mounted) {
+        setState(() {
+          _isRecording = false;
+          _sending = false;
+          _amplitude = 0;
+        });
+      }
     }
+  }
+
+  Future<void> _sendAudio(String path) async {
+    if (_isCompleted) return;
+    setState(() {
+      _sessionNotice = 'Analyzing speech...';
+    });
+    if (_backendSession) {
+      final response = await _audioService.sendAudioTurn(
+        sessionId: _sessionId!,
+        audioPath: path,
+      );
+      final aiText = response['aiText']?.toString() ?? '';
+      setState(() {
+        _messages.add(_DialogueMessage(
+            text: response['transcript']?.toString() ?? '',
+            fromGuide: false));
+        _messages.add(_DialogueMessage(text: aiText, fromGuide: true));
+        _recordAssistantTurn(aiText, response);
+        _sessionNotice =
+            _isCompleted ? 'Session complete.' : 'AI response received.';
+      });
+      _scrollToBottom();
+      await _speakResponse(aiText);
+      if (response['audioUrl'] != null) {
+        await _audioPlayer.play(UrlSource(response['audioUrl']));
+      }
+    } else {
+      setState(() {
+        _messages.add(const _DialogueMessage(
+            text: '(Simulated audio transcript)', fromGuide: false));
+        _messages.add(const _DialogueMessage(
+            text: 'I heard you! This is a simulated response.',
+            fromGuide: true));
+        _recordAssistantTurn('I heard you! This is a simulated response.');
+        _sessionNotice = 'Practice dialogue';
+      });
+      _scrollToBottom();
+    }
+  }
+
+  void _showAudioError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _sendTypedMessage() async {
@@ -601,11 +644,18 @@ class _ArenaScreenState extends State<ArenaScreen> {
                         ?.copyWith(fontWeight: FontWeight.w800)),
               ),
               if (_sessionNotice != null)
-                Text(_sessionNotice!,
+                Flexible(
+                  child: Text(
+                    _sessionNotice!,
                     style: Theme.of(context)
                         .textTheme
                         .labelSmall
-                        ?.copyWith(color: AppTheme.textMuted)),
+                        ?.copyWith(color: AppTheme.textMuted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                  ),
+                ),
             ],
           ),
         ),
@@ -716,8 +766,7 @@ class _ArenaScreenState extends State<ArenaScreen> {
                       MicButton(
                         isRecording: _isRecording,
                         enabled: !_sending && !_isCompleted,
-                        onTapDown: _startRecording,
-                        onTapUp: _stopRecordingAndSend,
+                        onTap: _toggleRecording,
                       ),
                       const SizedBox(width: 8),
                       Container(

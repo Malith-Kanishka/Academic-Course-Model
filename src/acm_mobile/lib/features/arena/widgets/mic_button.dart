@@ -5,22 +5,18 @@ class MicButton extends StatelessWidget {
   const MicButton({
     required this.isRecording,
     this.enabled = true,
-    required this.onTapDown,
-    required this.onTapUp,
+    required this.onTap,
     super.key,
   });
 
   final bool isRecording;
   final bool enabled;
-  final VoidCallback onTapDown;
-  final VoidCallback onTapUp;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: enabled ? (_) => onTapDown() : null,
-      onTapUp: enabled ? (_) => onTapUp() : null,
-      onTapCancel: enabled ? onTapUp : null,
+      onTap: enabled ? onTap : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         width: isRecording ? 80 : 70,
