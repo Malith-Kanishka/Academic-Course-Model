@@ -55,7 +55,7 @@ export default function Sidebar() {
   const visiblePendingCount = canReviewApprovals ? pendingCount : 0;
 
   return (
-    <aside className="flex h-screen w-72 shrink-0 flex-col border-r border-slate-200/80 bg-white/80 text-slate-700 backdrop-blur-xl">
+    <aside className="flex h-screen w-64 shrink-0 flex-col justify-between overflow-y-auto border-r border-slate-200/80 bg-white p-4 text-slate-700 backdrop-blur-xl">
       <div className="border-b border-slate-200/80 px-5 py-5">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500 text-base font-black text-white shadow-lg shadow-indigo-500/30">A</div>
@@ -67,7 +67,7 @@ export default function Sidebar() {
       </div>
 
       <div className="px-5 pt-6"><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Workspace</p></div>
-      <nav className="flex-1 space-y-1 px-3 py-3">
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-1 py-3">
         {navLinks.map(({ name, path, icon: Icon }) => (
           <NavLink
             key={name}
