@@ -58,8 +58,24 @@ class _RemedialPlansPageState extends State<RemedialPlansPage> {
     });
     try {
       final summary = await _repository.getSummary();
+      final restoredProgress = <String, Set<int>>{};
+      for (final plan in summary.activeRemedialPlans) {
+        final savedIndices =
+            await _remedialPlanService.getCompletedDayIndices(plan.id);
+        final validIndices = savedIndices
+            .where((index) => index >= 0 && index < plan.actionItems.length)
+            .toSet();
+        if (validIndices.isNotEmpty) {
+          restoredProgress[plan.id] = validIndices;
+        }
+      }
       if (!mounted) return;
-      setState(() => _plans = summary.activeRemedialPlans);
+      setState(() {
+        _plans = summary.activeRemedialPlans;
+        _completedDays
+          ..clear()
+          ..addAll(restoredProgress);
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = 'Unable to load your remedial plans.');
@@ -85,19 +101,38 @@ class _RemedialPlansPageState extends State<RemedialPlansPage> {
     });
   }
 
-  bool _isCompleted(ActiveRemedialPlanSummary plan) =>
-      _completedDays[plan.id]?.length == plan.actionItems.length &&
-      plan.actionItems.isNotEmpty;
+  bool _isCompleted(ActiveRemedialPlanSummary plan) {
+    final completedDays = _completedDays[plan.id] ?? const <int>{};
+    return plan.actionItems.length >= 7 &&
+        List<int>.generate(7, (index) => index).every(completedDays.contains);
+  }
 
-  void _toggleDay(ActiveRemedialPlanSummary plan, int day, bool checked) {
+  Future<void> _toggleDay(
+    ActiveRemedialPlanSummary plan,
+    int day,
+    bool checked,
+  ) async {
+    final completedDays = {...?_completedDays[plan.id]};
+    if (checked) {
+      completedDays.add(day);
+    } else {
+      completedDays.remove(day);
+    }
     setState(() {
-      final completed = _completedDays.putIfAbsent(plan.id, () => <int>{});
-      if (checked) {
-        completed.add(day);
-      } else {
-        completed.remove(day);
-      }
+      _completedDays[plan.id] = completedDays;
     });
+
+    try {
+      await _remedialPlanService.saveCompletedDayIndices(
+        plan.id,
+        completedDays,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not save plan progress.')),
+      );
+    }
   }
 
   Future<void> _confirmDeletePlan(ActiveRemedialPlanSummary plan) async {
@@ -132,6 +167,12 @@ class _RemedialPlansPageState extends State<RemedialPlansPage> {
     setState(() => _deletingPlanIds.add(plan.id));
     try {
       await _remedialPlanService.deleteRemedialPlan(plan.id);
+      if (!mounted) return;
+      try {
+        await _remedialPlanService.clearCompletedDayIndices(plan.id);
+      } catch (_) {
+        // The plan was deleted remotely; stale local progress is harmless.
+      }
       if (!mounted) return;
       setState(() {
         _plans = _plans.where((item) => item.id != plan.id).toList();
@@ -244,7 +285,9 @@ class _RemedialPlansPageState extends State<RemedialPlansPage> {
                 checkedDays: _completedDays[plan.id] ?? const <int>{},
                 isCompleted: _isCompleted(plan),
                 initiallyExpanded: isSelectedPlan,
-                onToggleDay: (day, checked) => _toggleDay(plan, day, checked),
+                onToggleDay: (day, checked) {
+                  _toggleDay(plan, day, checked);
+                },
                 onContinue: () => _continuePractice(plan),
                 onDelete:
                     _isCompleted(plan) ? () => _confirmDeletePlan(plan) : null,
