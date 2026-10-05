@@ -1,17 +1,18 @@
 using System.Net;
 using System.Net.Mail;
 using ACM.Backend.Core.Interfaces;
+using Microsoft.Extensions.Options;
 
 namespace ACM.Backend.Services;
 
 public class EmailService : IEmailService
 {
-    private readonly IConfiguration _config;
+    private readonly SmtpSettings _settings;
     private readonly ILogger<EmailService> _logger;
 
-    public EmailService(IConfiguration config, ILogger<EmailService> logger)
+    public EmailService(IOptions<SmtpSettings> settings, ILogger<EmailService> logger)
     {
-        _config = config;
+        _settings = settings.Value;
         _logger = logger;
     }
 
@@ -19,28 +20,22 @@ public class EmailService : IEmailService
     {
         try
         {
-            var host = _config["SmtpSettings:Host"];
-            var portString = _config["SmtpSettings:Port"];
-            var username = _config["SmtpSettings:Username"];
-            var password = _config["SmtpSettings:Password"];
-            var fromAddress = _config["SmtpSettings:FromEmail"];
-
-            if (string.IsNullOrEmpty(host) || string.IsNullOrEmpty(portString) ||
-                string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password) || string.IsNullOrEmpty(fromAddress))
+            if (string.IsNullOrWhiteSpace(_settings.Host) ||
+                string.IsNullOrWhiteSpace(_settings.Username) ||
+                string.IsNullOrWhiteSpace(_settings.Password) ||
+                string.IsNullOrWhiteSpace(_settings.FromEmail))
             {
                 _logger.LogWarning("SMTP settings are incomplete. Skipping email sending.");
                 return;
             }
 
-            int port = int.Parse(portString);
-
-            using var client = new SmtpClient(host, port)
+            using var client = new SmtpClient(_settings.Host, _settings.Port)
             {
-                Credentials = new NetworkCredential(username, password),
+                Credentials = new NetworkCredential(_settings.Username, _settings.Password),
                 EnableSsl = true
             };
 
-            using var message = new MailMessage(fromAddress, toEmail, subject, body);
+            using var message = new MailMessage(_settings.FromEmail, toEmail, subject, body);
             await client.SendMailAsync(message);
             _logger.LogInformation($"Email sent successfully to {toEmail}");
         }

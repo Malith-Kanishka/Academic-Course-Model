@@ -12,6 +12,10 @@ import logging
 import os
 from typing import Any, Dict, List, Set
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sentence_transformers import SentenceTransformer
@@ -21,6 +25,7 @@ from pydantic import BaseModel
 from app.agents.coordinator_agent import SessionCoordinatorAgent
 from app.agents.knowledge_auditor_agent import audit_student_claim
 from app.agents.socratic_adversary_agent import SocraticAdversary
+from app.agents.safety_evaluator_agent import SafetyEvaluatorAgent, SessionFinalTranscriptDTO
 from app.graph.state import WorkflowState
 from app.schemas.audit_schemas import FactAuditRequest, FactAuditResultDTO
 from app.schemas.session_schemas import NextTurnDirectiveDTO, SessionAgendaDTO, SessionInitRequest
@@ -48,8 +53,12 @@ async def lifespan(app: FastAPI):
     else:
         try:
             # Pre-instantiate and warm up Groq model
-            model_name = os.getenv("GROQ_MODEL_NAME", "llama-3.3-70b-versatile")
-            groq_llm = ChatGroq(groq_api_key=groq_api_key, model_name=model_name)
+            model_name = (
+                os.getenv("GROQ_MODEL")
+                or os.getenv("GROQ_MODEL_NAME")
+                or "openai/gpt-oss-20b"
+            )
+            groq_llm = ChatGroq(groq_api_key=groq_api_key, model=model_name)
             
             # Attach to socratic_agent if supported
             if hasattr(socratic_agent, "llm"):
@@ -85,6 +94,7 @@ app.include_router(rag_router)
 # Initialize the AI agents
 _coordinator = SessionCoordinatorAgent()
 socratic_agent = SocraticAdversary()
+evaluator_agent = SafetyEvaluatorAgent()
 
 
 @app.get("/health")
@@ -131,6 +141,10 @@ class AStarFilterRequest(BaseModel):
 class DialogueRequest(BaseModel):
     session_id: str
     student_text: str
+    topic_name: str = "Unknown Topic"
+    turn_count: int = 0
+    history: List[str] = []
+
 
 
 class AIResponse(BaseModel):
@@ -210,8 +224,23 @@ async def process_dialogue(request: DialogueRequest):
                 context=context
             )
         else:
-            response_text = socratic_agent.generate_response(request.student_text)
+            response_text = socratic_agent.generate_response(
+                student_text=request.student_text,
+                topic_name=request.topic_name,
+                turn_count=request.turn_count,
+                history=request.history
+            )
+
 
         return AIResponse(ai_text=response_text)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/internal/evaluate-session")
+def evaluate_session_endpoint(payload: SessionFinalTranscriptDTO):
+    try:
+        # Send to SafetyEvaluatorAgent which will synchronously POST back to C#
+        result = evaluator_agent.evaluate_session(payload.model_dump(), send_to_backend=True)
+        return result
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=str(exc))

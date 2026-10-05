@@ -16,6 +16,7 @@ namespace ACM.Backend.Infrastructure.Data
 
         // Add your new DbSet properties right here inside the class!
         public DbSet<Module> Modules { get; set; } = null!;
+        public DbSet<StudentEnrollment> StudentEnrollments { get; set; } = null!;
         public DbSet<Topic> Topics { get; set; } = null!;
         public DbSet<StudyMaterial> StudyMaterials { get; set; } = null!;
         // Member 3 (Your Tables)
@@ -47,6 +48,22 @@ namespace ACM.Backend.Infrastructure.Data
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.ShortId)
                 .IsUnique();
+
+            modelBuilder.Entity<StudentEnrollment>(entity =>
+            {
+                entity.HasKey(enrollment => enrollment.Id);
+                entity.HasIndex(enrollment => new { enrollment.StudentId, enrollment.ModuleId })
+                    .IsUnique();
+                entity.HasIndex(enrollment => new { enrollment.StudentId, enrollment.IsActive });
+                entity.HasOne(enrollment => enrollment.Student)
+                    .WithMany()
+                    .HasForeignKey(enrollment => enrollment.StudentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(enrollment => enrollment.Module)
+                    .WithMany()
+                    .HasForeignKey(enrollment => enrollment.ModuleId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
 
             // User to RefreshToken relationship (One-to-Many)
             modelBuilder.Entity<User>()
@@ -94,7 +111,7 @@ namespace ACM.Backend.Infrastructure.Data
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<RemedialPlan>()
-                .HasMany<ApprovalLog>()
+                .HasMany(plan => plan.ApprovalLogs)
                 .WithOne(log => log.Plan)
                 .HasForeignKey(log => log.PlanId)
                 .OnDelete(DeleteBehavior.Cascade);

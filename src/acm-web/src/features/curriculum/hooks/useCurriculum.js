@@ -5,16 +5,16 @@ export default function useCurriculum() {
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState('');
 
-  const fetchModules = useCallback(async () => {
+  const fetchModules = useCallback(async ({ student = false } = {}) => {
     setLoading(true);
     setError('');
     try {
-      const data = await curriculumService.getModules();
+      const data = await curriculumService.getModules({ student });
       setModules(data || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not connect to backend server.');
@@ -25,6 +25,14 @@ export default function useCurriculum() {
 
   const createTopic = async (payload) => {
     return await curriculumService.createTopic(payload);
+  };
+
+  const updateModule = async (moduleId, data) => {
+    return await curriculumService.updateModule(moduleId, data);
+  };
+
+  const deleteModule = async (moduleId) => {
+    return await curriculumService.deleteModule(moduleId);
   };
 
   const uploadMaterial = async (formData) => {
@@ -53,6 +61,8 @@ export default function useCurriculum() {
     error,
     fetchModules,
     createTopic,
+    updateModule,
+    deleteModule,
     uploadMaterial,
     isUploading,
     uploadProgress,

@@ -93,7 +93,7 @@ export default function TopicForm({ modules = [], onCreated }) {
           disabled={loading}
           className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-200 transition hover:bg-blue-700 disabled:opacity-50"
         >
-          {loading ? 'Creating...' : 'Create draft topic'}
+          {loading ? 'Creating...' : 'Create Topic'}
         </button>
       </div>
 

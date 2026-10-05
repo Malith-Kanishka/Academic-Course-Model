@@ -8,4 +8,7 @@ public class SessionFinalTranscriptDTO
     public int FinalScore { get; set; }
     public List<string> FlaggedMisconceptions { get; set; } = new();
     public List<string> SessionTranscript { get; set; } = new();
+    public string StudentSubmission { get; set; } = string.Empty;
+    public string ExpectedStandard { get; set; } = string.Empty;
+    public List<string> RemedialActionItems { get; set; } = new();
 }

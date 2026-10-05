@@ -1,21 +1,9 @@
-import 'package:dio/dio.dart';
-
-import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 
 class ArenaRepository {
-  ArenaRepository({ApiClient? backend, Dio? aiClient})
-      : _backend = backend ?? ApiClient(),
-        _aiClient = aiClient ??
-            Dio(BaseOptions(
-              baseUrl: ApiConstants.aiBaseUrl,
-              connectTimeout: const Duration(seconds: 10),
-              receiveTimeout: const Duration(seconds: 30),
-              headers: {'Content-Type': 'application/json'},
-            ));
+  ArenaRepository({ApiClient? backend}) : _backend = backend ?? ApiClient();
 
   final ApiClient _backend;
-  final Dio _aiClient;
 
   Future<Map<String, dynamic>> startSession({
     required String studentId,
@@ -28,18 +16,24 @@ class ArenaRepository {
     return response.data ?? <String, dynamic>{};
   }
 
-  Future<String> sendTurn({
+  Future<Map<String, dynamic>> sendTurn({
     required String sessionId,
     required String studentText,
   }) async {
-    final response = await _aiClient.post<Map<String, dynamic>>(
-      '/api/ai/process',
-      data: {'session_id': sessionId, 'student_text': studentText},
+    final response = await _backend.dio.post<Map<String, dynamic>>(
+      '/sessions/turn',
+      data: {'sessionId': sessionId, 'studentText': studentText},
     );
-    final text = response.data?['ai_text']?.toString();
+    final result = response.data ?? <String, dynamic>{};
+    final text =
+        (result['aiText'] ?? result['AiText'] ?? result['message'])?.toString();
     if (text == null || text.isEmpty) {
       throw const FormatException('The AI service returned an empty response.');
     }
-    return text;
+    return result;
+  }
+
+  Future<void> endSession({required String sessionId}) async {
+    await _backend.dio.post<dynamic>('/sessions/$sessionId/end');
   }
 }

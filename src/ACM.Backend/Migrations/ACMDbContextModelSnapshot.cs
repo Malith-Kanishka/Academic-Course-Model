@@ -291,6 +291,10 @@ namespace ACM.Backend.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("ExpectedStandard")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<Guid>("MasteryReportId")
                         .HasColumnType("uuid");
 
@@ -303,6 +307,10 @@ namespace ACM.Backend.Migrations
                     b.Property<Guid>("StudentId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("StudentSubmission")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -311,7 +319,39 @@ namespace ACM.Backend.Migrations
                     b.HasIndex("MasteryReportId")
                         .IsUnique();
 
+                    b.HasIndex("StudentId");
+
                     b.ToTable("RemedialPlans");
+                });
+
+            modelBuilder.Entity("ACM.Backend.Core.Entities.StudentEnrollment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("EnrolledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ModuleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ModuleId");
+
+                    b.HasIndex("StudentId", "IsActive");
+
+                    b.HasIndex("StudentId", "ModuleId")
+                        .IsUnique();
+
+                    b.ToTable("StudentEnrollments");
                 });
 
             modelBuilder.Entity("ACM.Backend.Core.Entities.StudyMaterial", b =>
@@ -319,6 +359,11 @@ namespace ACM.Backend.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("FilePathOrUrl")
                         .IsRequired()
@@ -369,6 +414,8 @@ namespace ACM.Backend.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TopicId");
 
                     b.ToTable("StudySessions");
                 });
@@ -509,13 +556,51 @@ namespace ACM.Backend.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("ACM.Backend.Core.Entities.User", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("MasteryReport");
+
+                    b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("ACM.Backend.Core.Entities.StudentEnrollment", b =>
+                {
+                    b.HasOne("ACM.Backend.Core.Entities.Module", "Module")
+                        .WithMany()
+                        .HasForeignKey("ModuleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ACM.Backend.Core.Entities.User", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Module");
+
+                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("ACM.Backend.Core.Entities.StudyMaterial", b =>
                 {
                     b.HasOne("ACM.Backend.Core.Entities.Topic", "Topic")
                         .WithMany("StudyMaterials")
+                        .HasForeignKey("TopicId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Topic");
+                });
+
+            modelBuilder.Entity("ACM.Backend.Core.Entities.StudySession", b =>
+                {
+                    b.HasOne("ACM.Backend.Core.Entities.Topic", "Topic")
+                        .WithMany()
                         .HasForeignKey("TopicId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

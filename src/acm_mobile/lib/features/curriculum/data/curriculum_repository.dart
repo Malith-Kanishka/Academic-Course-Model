@@ -1,3 +1,4 @@
+import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../models/course_module.dart';
 
@@ -7,7 +8,8 @@ class CurriculumRepository {
   final ApiClient _client;
 
   Future<List<CourseModule>> getModules() async {
-    final response = await _client.dio.get<dynamic>('/Syllabus/modules');
+    final response =
+        await _client.dio.get<dynamic>(ApiConstants.studentModules);
     final data = response.data;
     if (data is! List) return const [];
     return data

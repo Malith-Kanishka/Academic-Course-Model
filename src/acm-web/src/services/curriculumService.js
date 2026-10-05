@@ -1,13 +1,31 @@
 import apiClient from './apiClient';
 
 export const curriculumService = {
-  async getModules() {
-    const response = await apiClient.get('/Syllabus/modules');
+  async getModules({ student = false } = {}) {
+    const response = await apiClient.get(student ? '/student/my-modules' : '/Syllabus/modules');
+    return response.data;
+  },
+
+  async assignStudent(moduleId, studentEmail) {
+    const response = await apiClient.post('/enrollments/assign', {
+      moduleId,
+      studentEmail,
+    });
     return response.data;
   },
 
   async createModule(moduleData) {
     const response = await apiClient.post('/Syllabus/modules', moduleData);
+    return response.data;
+  },
+
+  async updateModule(moduleId, moduleData) {
+    const response = await apiClient.put(`/Syllabus/modules/${moduleId}`, moduleData);
+    return response.data;
+  },
+
+  async deleteModule(moduleId) {
+    const response = await apiClient.delete(`/Syllabus/modules/${moduleId}`);
     return response.data;
   },
 

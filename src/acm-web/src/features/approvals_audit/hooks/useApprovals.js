@@ -7,6 +7,7 @@ export default function useApprovals() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState('');
 	const [notice, setNotice] = useState('');
+	 const [deletingPlanId, setDeletingPlanId] = useState(null);
 
 	const loadApprovals = useCallback(async () => {
 		setLoading(true); setError('');
@@ -20,14 +21,17 @@ export default function useApprovals() {
 
 	useEffect(() => { loadApprovals(); }, [loadApprovals]);
 
-	const handleDecision = useCallback(async (id, decision, feedback = '') => {
+	const handleDecision = useCallback(async (id, decision, details = {}) => {
 		const item = pendingApprovals.find((approval) => (approval.id ?? approval.approvalId) === id);
 		if (!item) return;
+		const { editedPlanSummary, lecturerNotes } = typeof details === 'string'
+			? { lecturerNotes: details }
+			: details;
 		setNotice(''); setError('');
 		setPendingApprovals((current) => current.filter((approval) => (approval.id ?? approval.approvalId) !== id));
 		try {
-			const result = await approvalService.submitDecision(id, decision, feedback);
-			setAuditHistory((current) => [{ ...item, ...result, status: decision, feedback, decidedAt: new Date().toISOString() }, ...current]);
+			const result = await approvalService.submitDecision(id, decision, { editedPlanSummary, lecturerNotes });
+			setAuditHistory((current) => [{ ...item, ...result, status: decision, feedback: lecturerNotes, decidedAt: new Date().toISOString() }, ...current]);
 			setNotice(`Plan ${decision.toLowerCase()} successfully.`);
 		} catch (requestError) {
 			setPendingApprovals((current) => [item, ...current]);
@@ -36,5 +40,23 @@ export default function useApprovals() {
 		}
 	}, [pendingApprovals]);
 
-	return { pendingApprovals, auditHistory, loading, error, notice, handleDecision, reload: loadApprovals };
+	const deletePlan = useCallback(async (id) => {
+		setDeletingPlanId(id);
+		setNotice(''); setError('');
+		try {
+			await approvalService.deletePlan(id);
+			const matchesPlan = (item) => (item.id ?? item.approvalId ?? item.planId) !== id;
+			setPendingApprovals((current) => current.filter(matchesPlan));
+			setAuditHistory((current) => current.filter(matchesPlan));
+			setNotice('Remedial plan deleted.');
+			return true;
+		} catch (requestError) {
+			setError(requestError.response?.data?.message ?? 'The remedial plan could not be deleted. Please try again.');
+			return false;
+		} finally {
+			setDeletingPlanId(null);
+		}
+	}, []);
+
+	return { pendingApprovals, auditHistory, loading, error, notice, handleDecision, deletePlan, deletingPlanId, reload: loadApprovals };
 }

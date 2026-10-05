@@ -7,5 +7,14 @@ public interface IApprovalService
 {
     Task<MasteryReport> ProcessSessionEvaluationAsync(SessionFinalTranscriptDTO dto);
     Task<IEnumerable<RemedialPlan>> GetPendingApprovalsAsync();
-    Task<RemedialPlan?> SubmitProfessorDecisionAsync(Guid planId, string status, string? notes);
+    Task<IEnumerable<ApprovalLog>> GetApprovalHistoryAsync();
+    Task<bool> DeleteRemedialPlanAsync(Guid planId);
+    /// <summary>Gets active remedial plans belonging to the specified student.</summary>
+    Task<IEnumerable<RemedialPlan>> GetActivePlansForStudentAsync(Guid studentId);
+    Task<string?> GetStudentEmailAsync(Guid studentId);
+    Task<RemedialPlan?> SubmitProfessorDecisionAsync(
+        Guid planId,
+        string status,
+        string? notes,
+        string? editedPlanSummary);
 }

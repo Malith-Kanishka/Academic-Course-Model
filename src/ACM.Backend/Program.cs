@@ -92,6 +92,7 @@ builder.Services.AddHttpClient<KnowledgeAuditorService>(client =>
 
 // Register the Curriculum Service
 builder.Services.AddScoped<CurriculumService>();
+builder.Services.AddScoped<IEnrollmentService, EnrollmentService>();
 
 // Enable CORS for React web app and Flutter mobile app
 builder.Services.AddCors(options =>
@@ -110,6 +111,7 @@ builder.Services.AddScoped<ISessionService, SessionService>();
 
 // Register Member 4 Approval & Evaluation Service
 builder.Services.AddScoped<IApprovalService, ApprovalService>();
+builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
 builder.Services.AddScoped<IEmailService, EmailService>();
 
 var app = builder.Build();
@@ -122,6 +124,15 @@ app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "ACM Backend API V1");
     c.RoutePrefix = string.Empty; // This makes Swagger open automatically at the root URL (http://localhost:xxxx/)!
+});
+
+// Serve uploaded study material files (PDFs, etc.) under /uploads/
+var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
+Directory.CreateDirectory(uploadsPath);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
+    RequestPath = "/uploads"
 });
 
 // Member 1 - Authentication Middleware

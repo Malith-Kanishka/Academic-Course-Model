@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useLanguageStore } from '../../store/languageStore';
 
 /* ─── Constants ─────────────────────────────────────────────────────────── */
 const AI_BASE = 'http://localhost:8000';
@@ -99,7 +100,8 @@ const api = {
    ChatWorkspace
 ═══════════════════════════════════════════════════════════════════════════ */
 const ChatWorkspace = () => {
-  const [lang, setLang]         = useState('en');
+  const lang                    = useLanguageStore((state) => state.language);
+  const setLanguage             = useLanguageStore((state) => state.setLanguage);
   const [sessions, setSessions] = useState([]);
   const [messages, setMessages] = useState([]);
   const [input, setInput]       = useState('');
@@ -328,7 +330,7 @@ const ChatWorkspace = () => {
               <button
                 key={l}
                 id={`lang-${l}`}
-                onClick={() => setLang(l)}
+                onClick={() => setLanguage(l)}
                 style={{
                   padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
                   border: 'none', transition: 'all .15s',

@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../dashboard/models/student_dashboard_summary.dart';
 import '../state/evaluation_controller.dart';
 
 class RemedialPlanScreen extends StatefulWidget {
-  const RemedialPlanScreen(
-      {super.key, required this.plan, required this.controller});
+  const RemedialPlanScreen({
+    super.key,
+    this.plan,
+    this.controller,
+    this.activePlan,
+  });
 
-  final Map<String, dynamic> plan;
-  final EvaluationController controller;
+  final Map<String, dynamic>? plan;
+  final EvaluationController? controller;
+  final ActiveRemedialPlanSummary? activePlan;
 
   @override
   State<RemedialPlanScreen> createState() => _RemedialPlanScreenState();
@@ -25,9 +32,12 @@ class _RemedialPlanScreenState extends State<RemedialPlanScreen> {
   }
 
   Future<void> _submit(String decision) async {
+    final controller = widget.controller;
+    final plan = widget.plan;
+    if (controller == null || plan == null) return;
     setState(() => _isSubmitting = true);
-    final success = await widget.controller.submitDecision(
-      widget.plan['id'].toString(),
+    final success = await controller.submitDecision(
+      plan['id'].toString(),
       decision,
       _notesController.text.trim().isEmpty
           ? null
@@ -46,10 +56,10 @@ class _RemedialPlanScreenState extends State<RemedialPlanScreen> {
           backgroundColor: AppTheme.emerald,
         ),
       );
-    } else if (widget.controller.errorMessage != null) {
+    } else if (controller.errorMessage != null) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text(widget.controller.errorMessage!),
+          content: Text(controller.errorMessage!),
           backgroundColor: AppTheme.danger,
         ),
       );
@@ -88,26 +98,45 @@ class _RemedialPlanScreenState extends State<RemedialPlanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final report = _map(widget.plan['masteryReport']);
+    final activePlan = widget.activePlan;
+    final plan = widget.plan ?? const <String, dynamic>{};
+    final report = _map(plan['masteryReport']);
     final misconceptions = _list(report['flaggedMisconceptions']);
-    final actionItems = _list(widget.plan['actionItems']);
-    final score = _number(report['masteryScore']);
-    final studentId = (widget.plan['studentId'] ?? 'Unknown').toString();
-    final topic = (report['topicName'] ?? 'Untitled topic').toString();
-    final highRisk = score < 65 || misconceptions.isNotEmpty;
-    final riskLabel = highRisk
-        ? 'HIGH RISK'
-        : score < 80
-            ? 'REVIEW'
-            : 'LOW RISK';
+    final rawActionItems = activePlan?.actionItems ??
+        _list(plan['actionItems']).map((item) => item.toString()).toList();
+    final actionItems = ActiveRemedialPlanSummary.completeActionItems(
+      rawActionItems,
+    );
+    final actionItemCount = actionItems.length;
+    final rawScore = report['masteryScore'] ?? plan['masteryScore'];
+    final score = activePlan?.masteryScore ??
+        (rawScore == null ? null : _number(rawScore));
+    final studentId = (plan['studentId'] ?? 'Unknown').toString();
+    final topic = activePlan?.topicName ??
+        (report['topicName'] ?? 'Untitled topic').toString();
+    final professorNotes = activePlan?.professorNotes ??
+        plan['professorNotes']?.toString() ??
+        plan['ProfessorNotes']?.toString();
+    final isStudentView = activePlan != null;
+    final highRisk = (score != null && score < 65) || misconceptions.isNotEmpty;
+    final riskLabel = score == null
+        ? 'ACTIVE PLAN'
+        : highRisk
+            ? 'HIGH RISK'
+            : score < 80
+                ? 'REVIEW'
+                : 'LOW RISK';
     final riskColor = highRisk
         ? AppTheme.danger
-        : score < 80
+        : score != null && score < 80
             ? AppTheme.amber
             : AppTheme.emerald;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Remedial plan review')),
+      appBar: AppBar(
+        title: Text(
+            isStudentView ? 'Remedial plan details' : 'Remedial plan review'),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
         children: [
@@ -138,7 +167,10 @@ class _RemedialPlanScreenState extends State<RemedialPlanScreen> {
                                 .titleLarge
                                 ?.copyWith(fontWeight: FontWeight.w800)),
                         const SizedBox(height: 5),
-                        Text('Student $studentId',
+                        Text(
+                            isStudentView
+                                ? 'Day ${activePlan.dayOfPlan} of 7'
+                                : 'Student $studentId',
                             style: Theme.of(context)
                                 .textTheme
                                 .bodySmall
@@ -215,7 +247,9 @@ class _RemedialPlanScreenState extends State<RemedialPlanScreen> {
             child: ExpansionTile(
               leading: const Icon(Icons.route_rounded, color: AppTheme.indigo),
               title: const Text('7-day study plan'),
-              subtitle: Text('${actionItems.length} recommended steps'),
+              subtitle: Text(
+                '$actionItemCount recommended ${actionItemCount == 1 ? 'step' : 'steps'}',
+              ),
               childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               children: actionItems.isEmpty
                   ? [
@@ -256,70 +290,133 @@ class _RemedialPlanScreenState extends State<RemedialPlanScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          TextField(
-            controller: _notesController,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Reviewer feedback (optional)',
-              hintText: 'Add context for the student or teaching team',
-              alignLabelWithHint: true,
-              prefixIcon: Icon(Icons.edit_note_rounded),
+          if (isStudentView) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.chat_bubble_outline_rounded,
+                            color: AppTheme.primaryBlue),
+                        const SizedBox(width: 8),
+                        Text('Lecturer Notes / Custom Feedback',
+                            style: Theme.of(context).textTheme.titleSmall),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      professorNotes?.trim().isNotEmpty == true
+                          ? professorNotes!.trim()
+                          : 'No additional lecturer feedback was provided.',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(color: AppTheme.textMuted),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
+          ] else if (widget.controller != null)
+            TextField(
+              controller: _notesController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Reviewer feedback (optional)',
+                hintText: 'Add context for the student or teaching team',
+                alignLabelWithHint: true,
+                prefixIcon: Icon(Icons.edit_note_rounded),
+              ),
+            ),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          decoration: BoxDecoration(
-            color: AppTheme.slate,
-            border: const Border(top: BorderSide(color: AppTheme.border)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 14,
-                offset: const Offset(0, -4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed:
-                      _isSubmitting ? null : () => _confirmDecision('REJECTED'),
-                  icon: const Icon(Icons.close_rounded),
-                  label: const Text('Reject'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.danger,
-                    side: BorderSide(
-                        color: AppTheme.danger.withValues(alpha: 0.6)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
+      bottomNavigationBar: isStudentView
+          ? SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
                 child: FilledButton.icon(
-                  onPressed: _isSubmitting
-                      ? null
-                      : () => _confirmDecision('APPROVED_ACTIVE'),
-                  icon: _isSubmitting
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.check_rounded),
-                  label: const Text('Approve'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppTheme.emerald,
-                    foregroundColor: Colors.white,
-                  ),
+                  onPressed: () {
+                    final todayTask = actionItems.isEmpty
+                        ? null
+                        : actionItems[(activePlan.dayOfPlan - 1)
+                            .clamp(0, actionItems.length - 1)
+                            .toInt()];
+                    context.go('/arena', extra: {
+                      'planId': activePlan.id,
+                      'topicName': topic,
+                      'actionItems': todayTask == null
+                          ? activePlan.actionItems
+                          : [todayTask.toString()],
+                      'startImmediately': true,
+                    });
+                  },
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Text("Start Today's Practice"),
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
+            )
+          : widget.controller != null && plan.isNotEmpty
+              ? SafeArea(
+                  top: false,
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.slate,
+                      border:
+                          const Border(top: BorderSide(color: AppTheme.border)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 14,
+                          offset: const Offset(0, -4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _isSubmitting
+                                ? null
+                                : () => _confirmDecision('REJECTED'),
+                            icon: const Icon(Icons.close_rounded),
+                            label: const Text('Reject'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.danger,
+                              side: BorderSide(
+                                  color:
+                                      AppTheme.danger.withValues(alpha: 0.6)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: _isSubmitting
+                                ? null
+                                : () => _confirmDecision('APPROVED_ACTIVE'),
+                            icon: _isSubmitting
+                                ? const SizedBox.square(
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2))
+                                : const Icon(Icons.check_rounded),
+                            label: const Text('Approve'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppTheme.emerald,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : null,
     );
   }
 }
@@ -443,11 +540,15 @@ class _Badge extends StatelessWidget {
 class _ScoreRing extends StatelessWidget {
   const _ScoreRing({required this.score});
 
-  final int score;
+  final int? score;
 
   @override
   Widget build(BuildContext context) {
-    final color = score < 65 ? AppTheme.danger : AppTheme.emerald;
+    final color = score == null
+        ? AppTheme.textMuted
+        : score! < 65
+            ? AppTheme.danger
+            : AppTheme.emerald;
     return SizedBox(
       width: 72,
       height: 72,
@@ -455,11 +556,12 @@ class _ScoreRing extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           CircularProgressIndicator(
-              value: score.clamp(0, 100) / 100,
+              value: (score ?? 0).clamp(0, 100) / 100,
               strokeWidth: 7,
               color: color,
               backgroundColor: color.withValues(alpha: 0.12)),
-          Text('$score%', style: const TextStyle(fontWeight: FontWeight.w800)),
+          Text(score == null ? 'N/A' : '$score%',
+              style: const TextStyle(fontWeight: FontWeight.w800)),
         ],
       ),
     );
