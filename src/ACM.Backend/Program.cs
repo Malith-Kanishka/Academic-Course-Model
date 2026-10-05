@@ -111,6 +111,7 @@ builder.Services.AddScoped<ISessionService, SessionService>();
 
 // Register Member 4 Approval & Evaluation Service
 builder.Services.AddScoped<IApprovalService, ApprovalService>();
+builder.Services.Configure<SmtpSettings>(builder.Configuration.GetSection("SmtpSettings"));
 builder.Services.AddScoped<IEmailService, EmailService>();
 
 var app = builder.Build();

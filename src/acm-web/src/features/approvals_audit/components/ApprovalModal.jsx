@@ -104,7 +104,7 @@ function ApprovalModalContent({ approval, onClose, onDecision }) {
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Evidence trace</p>
               <h3 className="mt-1 text-lg font-bold text-slate-900">Submission vs expected standard</h3>
             </div>
-            <TraceDiffViewer studentAnswer={approval.studentAnswer ?? approval.answer} expectedStandard={approval.expectedStandard ?? approval.rubric} missingConcepts={approval.missingConcepts ?? []} />
+            <TraceDiffViewer studentAnswer={approval.studentSubmission ?? approval.studentAnswer ?? approval.answer} expectedStandard={approval.expectedStandard ?? approval.rubric} missingConcepts={approval.missingConcepts ?? []} />
             <label htmlFor="lecturer-notes" className="block text-sm font-semibold text-slate-800">Lecturer Notes / Custom Feedback</label>
             <textarea
               id="lecturer-notes"

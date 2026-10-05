@@ -15,6 +15,7 @@ namespace ACM.Backend.Core.Interfaces
         /// <summary>Gets session summaries for authorized academic staff monitoring.</summary>
         Task<IEnumerable<StudySession>> GetAllSessionsAsync();
         Task<StudySession> GetSessionHistoryAsync(Guid sessionId);
+        Task<bool> DeleteSessionAsync(Guid sessionId);
         Task<string> EndAndEvaluateSessionAsync(Guid sessionId);
     }
 }

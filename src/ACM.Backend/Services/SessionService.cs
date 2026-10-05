@@ -176,30 +176,79 @@ namespace ACM.Backend.Services
 
         public async Task<StudySession> GetSessionHistoryAsync(Guid sessionId)
         {
-            return await _context.StudySessions
+            var session = await _context.StudySessions
                 .Include(s => s.DialogueTurns)
+                .Include(s => s.Topic)
+                    .ThenInclude(topic => topic!.Module)
                 .FirstOrDefaultAsync(s => s.Id == sessionId);
+
+            if (session is not null)
+                await LoadStudentsAsync(new[] { session });
+
+            return session;
         }
 
         public async Task<IEnumerable<StudySession>> GetAllSessionsAsync()
         {
-            return await _context.StudySessions
+            var sessions = await _context.StudySessions
                 .AsNoTracking()
+                .Include(session => session.DialogueTurns)
+                .Include(session => session.Topic)
+                    .ThenInclude(topic => topic!.Module)
                 .OrderByDescending(session => session.StartTime)
                 .ToListAsync();
+
+            await LoadStudentsAsync(sessions);
+            return sessions;
+        }
+
+        private async Task LoadStudentsAsync(IEnumerable<StudySession> sessions)
+        {
+            var sessionList = sessions.ToList();
+            var studentIds = sessionList.Select(session => session.StudentId).Distinct().ToList();
+            if (studentIds.Count == 0) return;
+
+            var students = await _context.Users
+                .AsNoTracking()
+                .Where(user => studentIds.Contains(user.Id))
+                .ToDictionaryAsync(user => user.Id);
+
+            foreach (var session in sessionList)
+            {
+                if (students.TryGetValue(session.StudentId, out var student))
+                    session.Student = student;
+            }
+        }
+
+        public async Task<bool> DeleteSessionAsync(Guid sessionId)
+        {
+            var session = await _context.StudySessions
+                .Include(item => item.DialogueTurns)
+                .FirstOrDefaultAsync(item => item.Id == sessionId);
+            if (session is null) return false;
+
+            _context.DialogueTurns.RemoveRange(session.DialogueTurns);
+            _context.StudySessions.Remove(session);
+            await _context.SaveChangesAsync();
+            return true;
         }
 
         public async Task<string> EndAndEvaluateSessionAsync(Guid sessionId)
         {
             var session = await _context.StudySessions
                 .Include(s => s.DialogueTurns)
+                .Include(s => s.Topic)
+                    .ThenInclude(topic => topic!.Module)
                 .FirstOrDefaultAsync(s => s.Id == sessionId);
                 
             if (session == null) throw new Exception("Session not found");
 
             int totalQuestions = session.DialogueTurns.Count(t => t.Speaker == SpeakerType.AI_Socratic);
             var misconceptions = new System.Collections.Generic.List<string>();
-            var studentTurns = session.DialogueTurns.Where(t => t.Speaker == SpeakerType.Student).ToList();
+            var studentTurns = session.DialogueTurns
+                .Where(turn => turn.Speaker == SpeakerType.Student)
+                .OrderBy(turn => turn.Timestamp)
+                .ToList();
             
             // To deliberately fail sessions (QA requirement), we flag short or poor answers
             foreach(var turn in studentTurns) 
@@ -213,14 +262,26 @@ namespace ACM.Backend.Services
             
             int correctAnswers = misconceptions.Any() ? totalQuestions / 2 : totalQuestions;
             
+            var orderedTurns = session.DialogueTurns.OrderBy(turn => turn.Timestamp).ToList();
+            var studentSubmission = string.Join("\n", studentTurns.Select(turn => turn.Text));
+            var expectedStandard = string.Join("\n", new[]
+            {
+                session.Topic?.Title,
+                session.Topic?.ContentDescription,
+                session.Topic?.Module?.Description
+            }.Where(text => !string.IsNullOrWhiteSpace(text)));
             var payload = new
             {
                 session_id = sessionId.ToString(),
                 student_id = session.StudentId.ToString(),
-                topic_name = "Assessed Topic",
+                topic_name = session.Topic?.Title ?? session.Topic?.Module?.Title ?? "Assessed Topic",
                 correct_answers = correctAnswers,
                 total_questions = totalQuestions,
-                flagged_misconceptions = misconceptions
+                flagged_misconceptions = misconceptions,
+                student_submission = studentSubmission,
+                expected_standard = expectedStandard,
+                session_transcript = orderedTurns.Select(turn =>
+                    $"{(turn.Speaker == SpeakerType.Student ? "Student" : "Assistant")}: {turn.Text}").ToList()
             };
 
             var jsonPayload = JsonSerializer.Serialize(payload);

@@ -155,36 +155,55 @@ namespace ACM.Backend.Services
 
         private async Task SeedTestModuleAsync()
         {
-            if (await _context.Modules.AnyAsync(m => m.Code == "CS101"))
+            var module = await _context.Modules
+                .FirstOrDefaultAsync(m => m.Code == "CS101");
+            if (module is null)
             {
-                return;
+                module = new Module
+                {
+                    Id = Guid.NewGuid(),
+                    Title = "Intro to Computer Science",
+                    Code = "CS101",
+                    Description = "A foundational module covering the basics of computer science.",
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.Modules.Add(module);
             }
 
-            var module = new Module
+            var topic1 = await _context.Topics
+                .FirstOrDefaultAsync(topic => topic.ModuleId == module.Id && topic.OrderIndex == 1);
+            if (topic1 is null)
             {
-                Id = Guid.NewGuid(),
-                Title = "Intro to Computer Science",
-                Code = "CS101",
-                Description = "A foundational module covering the basics of computer science.",
-                CreatedAt = DateTime.UtcNow
-            };
+                topic1 = new Topic
+                {
+                    Id = Guid.NewGuid(),
+                    ModuleId = module.Id,
+                    OrderIndex = 1,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.Topics.Add(topic1);
+            }
+            topic1.Title = "Introduction to Data Mining and Machine Learning";
+            topic1.ContentDescription = "Overview of data mining principles, machine learning concepts, and predictive analytics techniques.";
 
-            _context.Modules.Add(module);
-
-            var topic = new Topic
+            var topic2 = await _context.Topics
+                .FirstOrDefaultAsync(topic => topic.ModuleId == module.Id && topic.OrderIndex == 2);
+            if (topic2 is null)
             {
-                Id = Guid.NewGuid(),
-                ModuleId = module.Id,
-                Title = "Introduction to Algorithms",
-                ContentDescription = "Covers basic algorithmic thinking, pseudocode, and complexity.",
-                OrderIndex = 1,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _context.Topics.Add(topic);
+                topic2 = new Topic
+                {
+                    Id = Guid.NewGuid(),
+                    ModuleId = module.Id,
+                    OrderIndex = 2,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.Topics.Add(topic2);
+            }
+            topic2.Title = "Data Understanding";
+            topic2.ContentDescription = "Exploration, collection, quality assessment, and initial insights into dataset structures.";
 
             await _context.SaveChangesAsync();
-            _logger.LogInformation("✓ Created test Module: CS101 - Intro to Computer Science (with 1 topic)");
+            _logger.LogInformation("✓ Ensured test Module CS101 has the first two canonical topics");
         }
 
         /// <summary>

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -50,7 +52,11 @@ class _ArenaScreenState extends State<ArenaScreen> {
   bool _backendSession = false;
   bool _isRemedialFallback = false;
   bool _isCompleted = false;
+  bool _endingSession = false;
+  bool _autoSubmitPaused = false;
   int _turnCount = 0;
+  int _autoSubmitSeconds = 10;
+  Timer? _autoSubmitTimer;
   String? _sessionId;
   String? _sessionNotice;
 
@@ -98,6 +104,7 @@ class _ArenaScreenState extends State<ArenaScreen> {
 
   @override
   void dispose() {
+    _autoSubmitTimer?.cancel();
     _messageController.dispose();
     _scrollController.dispose();
     _audioRecorder.dispose();
@@ -119,28 +126,52 @@ class _ArenaScreenState extends State<ArenaScreen> {
     });
   }
 
+  Future<void> _toggleRecording() async {
+    if (_isRecording) {
+      await _stopRecordingAndSend();
+    } else {
+      await _startRecording();
+    }
+  }
+
   Future<void> _startRecording() async {
     if (_sending || _isCompleted) return;
-    await _audioPlayer.stop();
-    await _speech.stop();
-    if (mounted) setState(() => _isAgentSpeaking = false);
+    var recordingStarted = false;
+    try {
+      await _audioPlayer.stop();
+      await _speech.stop();
+      if (mounted) setState(() => _isAgentSpeaking = false);
 
-    final status = await Permission.microphone.request();
-    if (status != PermissionStatus.granted) return;
+      final status = await Permission.microphone.request();
+      if (status != PermissionStatus.granted ||
+          !await _audioRecorder.hasPermission()) {
+        _showAudioError('Microphone permission is required to record.');
+        return;
+      }
 
-    if (await _audioRecorder.hasPermission()) {
       if (kIsWeb) {
         await _audioRecorder
             .start(const RecordConfig(encoder: AudioEncoder.opus), path: '');
       } else {
-        final String p = await getAudioTempPath();
-        await _audioRecorder
-            .start(const RecordConfig(encoder: AudioEncoder.aacLc), path: p);
+        final path = await getAudioTempPath();
+        await _audioRecorder.start(
+          const RecordConfig(encoder: AudioEncoder.aacLc),
+          path: path,
+        );
       }
-      setState(() {
-        _isRecording = true;
-      });
+      if (!mounted) return;
+      setState(() => _isRecording = true);
+      recordingStarted = true;
       _startAmplitudeTimer();
+    } catch (error) {
+      _showAudioError('Could not start recording. Check microphone access and try again.');
+    } finally {
+      if (!recordingStarted && mounted) {
+        setState(() {
+          _isRecording = false;
+          _amplitude = 0;
+        });
+      }
     }
   }
 
@@ -160,57 +191,76 @@ class _ArenaScreenState extends State<ArenaScreen> {
 
   Future<void> _stopRecordingAndSend() async {
     if (!_isRecording) return;
-    setState(() => _isRecording = false);
-    final path = await _audioRecorder.stop();
-    if (path != null && !_isCompleted) {
-      _sendAudio(path);
-    }
-  }
-
-  Future<void> _sendAudio(String path) async {
-    if (_isCompleted || _sending) return;
     setState(() {
       _sending = true;
       _sessionNotice = 'Analyzing speech...';
     });
     try {
-      if (_backendSession) {
-        final response = await _audioService.sendAudioTurn(
-          sessionId: _sessionId!,
-          audioPath: path,
-        );
-        final aiText = response['aiText']?.toString() ?? '';
-        setState(() {
-          _messages.add(_DialogueMessage(
-              text: response['transcript']?.toString() ?? '',
-              fromGuide: false));
-          _messages.add(_DialogueMessage(text: aiText, fromGuide: true));
-          _recordAssistantTurn(aiText, response);
-          _sessionNotice =
-              _isCompleted ? 'Session complete.' : 'AI response received.';
-        });
-        _scrollToBottom();
-        await _speakResponse(aiText);
-        if (response['audioUrl'] != null) {
-          await _audioPlayer.play(UrlSource(response['audioUrl']));
-        }
-      } else {
-        setState(() {
-          _messages.add(const _DialogueMessage(
-              text: '(Simulated audio transcript)', fromGuide: false));
-          _messages.add(const _DialogueMessage(
-              text: 'I heard you! This is a simulated response.',
-              fromGuide: true));
-          _recordAssistantTurn('I heard you! This is a simulated response.');
-          _sessionNotice = 'Practice dialogue';
-        });
-        _scrollToBottom();
+      final path = await _audioRecorder.stop();
+      if (path == null || path.isEmpty) {
+        throw StateError('No audio was captured. Please try again.');
       }
-    } catch (e) {
-      if (mounted) setState(() => _sessionNotice = 'Audio upload failed');
+      if (!_isCompleted) await _sendAudio(path);
+    } catch (error) {
+      // ignore: avoid_print
+      print('AUDIO UPLOAD ERROR: $error');
+      if (mounted) setState(() => _sessionNotice = 'Audio upload failed: $error');
+      _showAudioError('Audio upload failed: $error');
     } finally {
-      if (mounted) setState(() => _sending = false);
+      if (mounted) {
+        setState(() {
+          _isRecording = false;
+          _sending = false;
+          _amplitude = 0;
+        });
+      }
     }
+  }
+
+  Future<void> _sendAudio(String path) async {
+    if (_isCompleted) return;
+    setState(() {
+      _sessionNotice = 'Analyzing speech...';
+    });
+    if (_backendSession) {
+      final response = await _audioService.sendAudioTurn(
+        sessionId: _sessionId!,
+        audioPath: path,
+      );
+      final aiText = response['aiText']?.toString() ?? '';
+      setState(() {
+        _messages.add(_DialogueMessage(
+            text: response['transcript']?.toString() ?? '',
+            fromGuide: false));
+        _messages.add(_DialogueMessage(text: aiText, fromGuide: true));
+        _recordAssistantTurn(aiText, response);
+        _sessionNotice =
+            _isCompleted ? 'Session complete.' : 'AI response received.';
+      });
+      _scrollToBottom();
+      await _speakResponse(aiText);
+      if (response['audioUrl'] != null) {
+        await _audioPlayer.play(UrlSource(response['audioUrl']));
+      }
+    } else {
+      setState(() {
+        _messages.add(const _DialogueMessage(
+            text: '(Simulated audio transcript)', fromGuide: false));
+        _messages.add(const _DialogueMessage(
+            text: 'I heard you! This is a simulated response.',
+            fromGuide: true));
+        _recordAssistantTurn('I heard you! This is a simulated response.');
+        _sessionNotice = 'Practice dialogue';
+      });
+      _scrollToBottom();
+    }
+  }
+
+  void _showAudioError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _sendTypedMessage() async {
@@ -281,6 +331,7 @@ class _ArenaScreenState extends State<ArenaScreen> {
   }
 
   void _recordAssistantTurn(String response, [Map<String, dynamic>? payload]) {
+    final wasCompleted = _isCompleted;
     _turnCount += 1;
     final completionMessage = response.toLowerCase().contains(
           'we have reached the end of our session',
@@ -290,6 +341,68 @@ class _ArenaScreenState extends State<ArenaScreen> {
         payload?['sessionCompleted'] == true ||
         payload?['sessionStatus']?.toString().toLowerCase() == 'completed';
     _isCompleted = _turnCount >= 10 || completionMessage || completionFlag;
+    if (_isCompleted && !wasCompleted && _backendSession && _sessionId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _startAutoSubmitCountdown();
+      });
+    }
+  }
+
+  void _startAutoSubmitCountdown() {
+    if (_autoSubmitTimer != null || _autoSubmitPaused || _endingSession) return;
+    _autoSubmitSeconds = 10;
+    _autoSubmitTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() => _autoSubmitSeconds -= 1);
+      if (_autoSubmitSeconds <= 0) {
+        timer.cancel();
+        _autoSubmitTimer = null;
+        unawaited(_finishSessionAndReturnToModules());
+      }
+    });
+  }
+
+  void _reviewChat() {
+    _autoSubmitTimer?.cancel();
+    _autoSubmitTimer = null;
+    setState(() => _autoSubmitPaused = true);
+    if (_scrollController.hasClients) {
+      unawaited(_scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOut,
+      ));
+    }
+  }
+
+  Future<void> _finishSessionAndReturnToModules() async {
+    if (_endingSession) return;
+    _autoSubmitTimer?.cancel();
+    _autoSubmitTimer = null;
+    final sessionId = _sessionId;
+    if (!_backendSession || sessionId == null || sessionId.isEmpty) {
+      if (mounted) context.go('/courses');
+      return;
+    }
+
+    setState(() {
+      _endingSession = true;
+      _sessionNotice = 'Submitting final transcript for evaluation...';
+    });
+    try {
+      await context.read<ArenaRepository>().endSession(sessionId: sessionId);
+      if (mounted) context.go('/courses');
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _endingSession = false;
+        _sessionNotice = 'Session could not be submitted. Please retry.';
+      });
+      _showAudioError('Could not submit the completed session: $error');
+    }
   }
 
   Future<void> _speakResponse(String text) async {
@@ -601,11 +714,18 @@ class _ArenaScreenState extends State<ArenaScreen> {
                         ?.copyWith(fontWeight: FontWeight.w800)),
               ),
               if (_sessionNotice != null)
-                Text(_sessionNotice!,
+                Flexible(
+                  child: Text(
+                    _sessionNotice!,
                     style: Theme.of(context)
                         .textTheme
                         .labelSmall
-                        ?.copyWith(color: AppTheme.textMuted)),
+                        ?.copyWith(color: AppTheme.textMuted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                  ),
+                ),
             ],
           ),
         ),
@@ -716,8 +836,7 @@ class _ArenaScreenState extends State<ArenaScreen> {
                       MicButton(
                         isRecording: _isRecording,
                         enabled: !_sending && !_isCompleted,
-                        onTapDown: _startRecording,
-                        onTapUp: _stopRecordingAndSend,
+                        onTap: _toggleRecording,
                       ),
                       const SizedBox(width: 8),
                       Container(
@@ -746,14 +865,60 @@ class _ArenaScreenState extends State<ArenaScreen> {
                   ),
                   if (_isCompleted) ...[
                     const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () => context.go('/courses'),
-                        icon: const Icon(Icons.menu_book_rounded),
-                        label: const Text('Back to Modules'),
+                    if (_backendSession && _sessionId != null) ...[
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          _endingSession
+                              ? 'Submitting session...'
+                              : _autoSubmitPaused
+                                  ? 'Auto-submit paused. Review your chat before submitting.'
+                                  : 'Auto-submitting results in ${_autoSubmitSeconds}s...',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: _endingSession
+                                  ? null
+                                  : _finishSessionAndReturnToModules,
+                              icon: _endingSession
+                                  ? const SizedBox.square(
+                                      dimension: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.send_rounded),
+                              label: Text(
+                                _endingSession ? 'Submitting...' : 'Submit Now',
+                              ),
+                            ),
+                          ),
+                          if (!_autoSubmitPaused && !_endingSession) ...[
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _reviewChat,
+                                icon: const Icon(Icons.chat_outlined),
+                                label: const Text('Review Chat'),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ] else
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: () => context.go('/courses'),
+                          icon: const Icon(Icons.menu_book_rounded),
+                          label: const Text('Back to Modules'),
+                        ),
+                      ),
                   ],
                 ],
               ),

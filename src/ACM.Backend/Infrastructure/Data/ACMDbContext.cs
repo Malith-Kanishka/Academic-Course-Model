@@ -111,7 +111,7 @@ namespace ACM.Backend.Infrastructure.Data
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<RemedialPlan>()
-                .HasMany<ApprovalLog>()
+                .HasMany(plan => plan.ApprovalLogs)
                 .WithOne(log => log.Plan)
                 .HasForeignKey(log => log.PlanId)
                 .OnDelete(DeleteBehavior.Cascade);

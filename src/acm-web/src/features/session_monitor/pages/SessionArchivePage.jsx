@@ -6,6 +6,7 @@ import {
   RefreshCw,
   Search,
   Signal,
+  Trash2,
   Users,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -21,11 +22,24 @@ export default function SessionArchivePage() {
     isDetailLoading,
     error,
     selectSession,
+    deleteSession,
     reload,
   } = useSessionLogs();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [moduleFilter, setModuleFilter] = useState('All modules');
+  const [deletingSessionId, setDeletingSessionId] = useState(null);
+
+  const handleDeleteSession = async (sessionId) => {
+    if (!window.confirm('Are you sure you want to delete this session?')) return;
+
+    setDeletingSessionId(sessionId);
+    try {
+      await deleteSession(sessionId);
+    } finally {
+      setDeletingSessionId(null);
+    }
+  };
 
   // Derive unique module codes from the sessions list for the filter dropdown.
   const moduleOptions = useMemo(() => {
@@ -241,36 +255,57 @@ export default function SessionArchivePage() {
               {!isLoading &&
                 filteredSessions.map((session) => {
                   const isActive = activeSession?.id === session.id;
+                  const studentDisplayName =
+                    session.studentName || session.studentFullName || session.studentId;
                   return (
-                    <button
-                      type="button"
+                    <div
                       key={session.id}
-                      onClick={() => selectSession(session.id)}
-                      className={`flex w-full items-center gap-3 rounded-lg py-3 text-left transition hover:bg-blue-50/50 ${
+                      className={`flex w-full items-center gap-3 rounded-lg py-3 transition hover:bg-blue-50/50 ${
                         isActive ? 'bg-blue-50 px-3' : 'px-1'
                       }`}
                     >
-                      <div
-                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                          isActive ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'
-                        }`}
+                      <button
+                        type="button"
+                        onClick={() => selectSession(session.id)}
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                        aria-label={`View session for ${studentDisplayName ?? 'student'}`}
                       >
-                        <Headphones className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-slate-700">
-                          {session.moduleTopic}
-                        </p>
-                        <p className="mt-0.5 text-xs text-slate-400">
-                          {[session.studentName, formatDate(session.date), formatDuration(session.duration)]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </p>
-                      </div>
-                      {isDetailLoading && isActive && (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-400 shrink-0" />
-                      )}
-                    </button>
+                        <span
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                            isActive ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'
+                          }`}
+                        >
+                          <Headphones className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-slate-700">
+                            {session.moduleTopic}
+                          </span>
+                          <span className="mt-0.5 block text-xs text-slate-400">
+                            {[`Student ${studentDisplayName}`, formatDate(session.date), formatDuration(session.duration)]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </span>
+                        </span>
+                        {isDetailLoading && isActive && (
+                          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-blue-400" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteSession(session.id)}
+                        disabled={deletingSessionId === session.id}
+                        className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+                        aria-label={`Delete session for ${studentDisplayName ?? 'student'}`}
+                        title="Delete session"
+                      >
+                        {deletingSessionId === session.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                   );
                 })}
             </div>
@@ -279,7 +314,7 @@ export default function SessionArchivePage() {
 
         {/* Right column: Transcript */}
         <TranscriptStream
-          messages={activeSession?.messages ?? []}
+          messages={activeSession?.dialogueTurns ?? activeSession?.messages ?? []}
           isLoading={isDetailLoading}
         />
       </div>

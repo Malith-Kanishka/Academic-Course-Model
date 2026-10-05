@@ -135,7 +135,7 @@ export default function AudioPlayerCard({ session }) {
             {session?.moduleTopic ?? 'Select a session'}
           </h2>
           <p className="mt-1 text-sm text-slate-500">
-            {[session?.studentName, sessionDate, durationLabel]
+            {[session?.studentName || session?.studentFullName || session?.studentId, sessionDate, durationLabel]
               .filter(Boolean)
               .join(' · ')}
           </p>

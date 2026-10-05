@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ACM.Backend.Core.Interfaces;
 using ACM.Backend.Core.DTOs.Member3;
+using ACM.Backend.Core.Entities;
 
 namespace ACM.Backend.Controllers
 {
@@ -25,7 +26,7 @@ namespace ACM.Backend.Controllers
         public async Task<IActionResult> GetAllSessions()
         {
             var sessions = await _sessionService.GetAllSessionsAsync();
-            return Ok(sessions);
+            return Ok(sessions.Select(ToSessionDto));
         }
 
         // POST: api/sessions/start
@@ -69,7 +70,15 @@ namespace ACM.Backend.Controllers
             var session = await _sessionService.GetSessionHistoryAsync(id);
             if (session == null) return NotFound();
 
-            return Ok(session);
+            return Ok(ToSessionDto(session));
+        }
+
+        [HttpDelete("{id:guid}")]
+        [Authorize(Roles = "Professor,Admin,TA")]
+        public async Task<IActionResult> DeleteSession(Guid id)
+        {
+            var deleted = await _sessionService.DeleteSessionAsync(id);
+            return deleted ? NoContent() : NotFound();
         }
 
         // POST: api/sessions/{id}/end
@@ -85,6 +94,43 @@ namespace ACM.Backend.Controllers
             {
                 return StatusCode(500, ex.Message);
             }
+        }
+
+        private static SessionDto ToSessionDto(StudySession session)
+        {
+            return new SessionDto
+            {
+                Id = session.Id,
+                StudentId = session.StudentId,
+                StudentName = GetStudentName(session),
+                TopicId = session.TopicId,
+                StartTime = new DateTimeOffset(DateTime.SpecifyKind(session.StartTime, DateTimeKind.Utc)),
+                EndTime = session.EndTime.HasValue
+                    ? new DateTimeOffset(DateTime.SpecifyKind(session.EndTime.Value, DateTimeKind.Utc))
+                    : null,
+                Status = session.Status.ToString(),
+                ModuleName = session.Topic?.Title
+                    ?? session.Topic?.Module?.Title
+                    ?? "Unknown Module",
+                DialogueTurns = session.DialogueTurns
+                    .OrderBy(turn => turn.Timestamp)
+                    .Select(turn => new DialogueTurnDto
+                    {
+                        Role = turn.Speaker == SpeakerType.Student ? "user" : "assistant",
+                        Content = turn.Text,
+                        Timestamp = new DateTimeOffset(DateTime.SpecifyKind(turn.Timestamp, DateTimeKind.Utc))
+                    })
+                    .ToList()
+            };
+        }
+
+        private static string GetStudentName(StudySession session)
+        {
+            var fullName = session.Student?.FullName?.Trim();
+            if (!string.IsNullOrWhiteSpace(fullName)) return fullName;
+
+            var email = session.Student?.Email?.Trim();
+            return !string.IsNullOrWhiteSpace(email) ? email : session.StudentId.ToString();
         }
     }
 }

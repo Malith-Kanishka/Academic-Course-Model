@@ -54,6 +54,36 @@ class ActiveRemedialPlanSummary {
   final int? masteryScore;
   final String? professorNotes;
 
+  static const List<String> fallbackActionItems = [
+    'Concept review and key idea summary',
+    'Socratic voice practice: explain the concept aloud',
+    'Code exercises and worked examples',
+    'Apply the concept to a new problem',
+    'Review mistakes and revisit weak areas',
+    'Mixed practice and self-check',
+    'Mastery re-assessment and reflection',
+  ];
+
+  static List<String> completeActionItems(Iterable<Object?> rawItems) {
+    final items = <String>[];
+    final seen = <String>{};
+    final dayPrefix = RegExp(r'^Day\s+\d+\s*:\s*', caseSensitive: false);
+
+    for (final rawItem in rawItems) {
+      final item = (rawItem?.toString() ?? '').trim().replaceFirst(dayPrefix, '');
+      if (item.isNotEmpty && seen.add(item.toLowerCase())) {
+        items.add(item);
+      }
+      if (items.length == 7) return items;
+    }
+
+    for (final fallback in fallbackActionItems) {
+      if (items.length == 7) break;
+      if (seen.add(fallback.toLowerCase())) items.add(fallback);
+    }
+    return items;
+  }
+
   factory ActiveRemedialPlanSummary.fromJson(Map<String, dynamic> json) {
     final rawApprovedAt = json['approvedAt'] ?? json['ApprovedAt'];
     final rawActionItems = json['actionItems'] ?? json['ActionItems'];
@@ -65,9 +95,9 @@ class ActiveRemedialPlanSummary {
       approvedAt: rawApprovedAt is String
           ? DateTime.tryParse(rawApprovedAt)?.toLocal() ?? DateTime.now()
           : DateTime.now(),
-      actionItems: rawActionItems is List
-          ? rawActionItems.map((item) => item.toString()).toList()
-          : const [],
+      actionItems: completeActionItems(
+        rawActionItems is List ? rawActionItems : const <Object?>[],
+      ),
       masteryScore: (json['masteryScore'] ?? json['MasteryScore']) is num
           ? ((json['masteryScore'] ?? json['MasteryScore']) as num).round()
           : int.tryParse(

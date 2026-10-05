@@ -32,4 +32,8 @@ class ArenaRepository {
     }
     return result;
   }
+
+  Future<void> endSession({required String sessionId}) async {
+    await _backend.dio.post<dynamic>('/sessions/$sessionId/end');
+  }
 }
