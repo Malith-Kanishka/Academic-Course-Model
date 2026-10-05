@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ACM.Backend.Core.Entities
 {
@@ -9,9 +10,13 @@ namespace ACM.Backend.Core.Entities
         
         // Links to Member 1's User table
         public Guid StudentId { get; set; } 
+
+        [NotMapped]
+        public User? Student { get; set; }
         
         // Links to Member 2's Topic table
         public Guid TopicId { get; set; }
+        public Topic? Topic { get; set; }
         
         public DateTime StartTime { get; set; } = DateTime.UtcNow;
         public DateTime? EndTime { get; set; }

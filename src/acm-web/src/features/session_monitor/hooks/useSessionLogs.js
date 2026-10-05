@@ -19,6 +19,7 @@ export default function useSessionLogs() {
 
   // Track the in-flight detail request so we can ignore stale responses.
   const activeRequestIdRef = useRef(null);
+  const selectedSessionIdRef = useRef(null);
 
   const loadSessions = useCallback(async () => {
     setIsLoading(true);
@@ -39,10 +40,12 @@ export default function useSessionLogs() {
   // Fetch the full transcript + audio for a chosen session.
   const selectSession = useCallback(async (id) => {
     if (!id) {
+      selectedSessionIdRef.current = null;
       setActiveSession(null);
       return;
     }
 
+    selectedSessionIdRef.current = id;
     const requestId = Symbol();
     activeRequestIdRef.current = requestId;
 
@@ -68,6 +71,27 @@ export default function useSessionLogs() {
     }
   }, []);
 
+  const deleteSession = useCallback(async (id) => {
+    setError('');
+    try {
+      await sessionService.deleteSession(id);
+      setSessions((current) => current.filter((session) => session.id !== id));
+      if (selectedSessionIdRef.current === id) {
+        activeRequestIdRef.current = Symbol();
+        selectedSessionIdRef.current = null;
+        setActiveSession(null);
+        setIsDetailLoading(false);
+      }
+      return true;
+    } catch (requestError) {
+      setError(
+        requestError.response?.data?.message ??
+          'Unable to delete this session. Please try again.'
+      );
+      return false;
+    }
+  }, []);
+
   // Auto-select the first session once the list is loaded.
   useEffect(() => {
     if (sessions.length > 0 && !activeSession) {
@@ -86,6 +110,7 @@ export default function useSessionLogs() {
     isDetailLoading,
     error,
     selectSession,
+    deleteSession,
     reload: loadSessions,
   };
 }

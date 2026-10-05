@@ -12,10 +12,22 @@ const normalizeSession = (session) => ({
   studentName:
     session.studentName ??
     session.StudentName ??
-    `Student ${session.studentId ?? session.StudentId ?? ''}`.trim(),
+    session.studentFullName ??
+    session.StudentFullName ??
+    session.studentId ??
+    session.StudentId ??
+    '',
+  studentFullName:
+    session.studentFullName ??
+    session.StudentFullName ??
+    session.studentName ??
+    session.StudentName ??
+    '',
   moduleTopic:
     session.moduleTopic ??
     session.ModuleTopic ??
+    session.moduleName ??
+    session.ModuleName ??
     session.module ??
     session.Module ??
     'Unknown Module',
@@ -42,6 +54,10 @@ const normalizeSession = (session) => ({
     session.Messages ??
     session.transcript ??
     session.Transcript ??
+    [],
+  dialogueTurns:
+    session.dialogueTurns ??
+    session.DialogueTurns ??
     [],
 });
 
@@ -81,6 +97,8 @@ const normalizeMessage = (msg) => ({
 const normalizeSessionDetail = (session) => {
   const base = normalizeSession(session);
   const rawMessages =
+    session.dialogueTurns ??
+    session.DialogueTurns ??
     session.messages ??
     session.Messages ??
     session.chatMessages ??
@@ -90,6 +108,7 @@ const normalizeSessionDetail = (session) => {
     [];
   return {
     ...base,
+    dialogueTurns: rawMessages.map(normalizeMessage),
     messages: rawMessages.map(normalizeMessage),
   };
 };
@@ -120,6 +139,10 @@ const sessionService = {
   async getSessionById(id) {
     const response = await apiClient.get(`/sessions/${id}`);
     return normalizeSessionDetail(unwrap(response));
+  },
+
+  async deleteSession(id) {
+    await apiClient.delete(`/sessions/${id}`);
   },
 };
 

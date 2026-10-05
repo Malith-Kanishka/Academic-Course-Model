@@ -4,7 +4,7 @@ import json
 import urllib.request
 import urllib.error
 from typing import List, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Ensure Python can locate the 'app' module regardless of working directory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -19,6 +19,9 @@ class SessionFinalTranscriptDTO(BaseModel):
     correct_answers: int = 5
     total_questions: int = 10
     flagged_misconceptions: List[str] = []
+    session_transcript: List[str] = Field(default_factory=list)
+    student_submission: str = ""
+    expected_standard: str = ""
 
 # Output Schema Contract
 class EvaluationSummaryDTO(BaseModel):
@@ -53,7 +56,10 @@ class SafetyEvaluatorAgent:
         # 3. Execute tool: Draft 7-day remedial study plan
         remedial_data = create_draft_remedial_plan(
             student_id=data.student_id,
-            misconceptions=data.flagged_misconceptions
+            misconceptions=data.flagged_misconceptions,
+            student_submission=data.student_submission,
+            expected_standard=data.expected_standard,
+            topic_name=data.topic_name
         )
         
         output = EvaluationSummaryDTO(
@@ -77,10 +83,10 @@ class SafetyEvaluatorAgent:
                     "topicName": data.topic_name,
                     "finalScore": score,
                     "flaggedMisconceptions": data.flagged_misconceptions,
-                    "sessionTranscript": [
-                        f"Student evaluated on topic '{data.topic_name}'. "
-                        f"Flagged issues: {', '.join(data.flagged_misconceptions) or 'none'}"
-                    ]
+                    "sessionTranscript": data.session_transcript,
+                    "studentSubmission": data.student_submission,
+                    "expectedStandard": data.expected_standard,
+                    "remedialActionItems": remedial_data["action_items"]
                 }
                 json_bytes = json.dumps(backend_payload).encode("utf-8")
                 req = urllib.request.Request(

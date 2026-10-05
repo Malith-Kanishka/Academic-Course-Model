@@ -16,13 +16,33 @@ def compute_deterministic_grade(correct_count: int, total_questions: int, fallac
         "passed_threshold": score >= 65
     }
 
-def create_draft_remedial_plan(student_id: str, misconceptions: List[str]) -> Dict[str, Any]:
+def create_draft_remedial_plan(
+    student_id: str,
+    misconceptions: List[str],
+    student_submission: str = "",
+    expected_standard: str = "",
+    topic_name: str = "the assessed topic",
+) -> Dict[str, Any]:
     """
     Allow-listed Tool: Generates structured action items for mandatory student remedial review.
     """
-    action_items = [f"Review & re-study concept: {m}" for m in misconceptions]
+    response_excerpt = " ".join(student_submission.split())[:240]
+    standard_excerpt = " ".join(expected_standard.split())[:240]
+    action_items = []
+    for misconception in misconceptions:
+        action = f"Review & re-study concept: {misconception}"
+        if response_excerpt:
+            action += f". Revisit your response on {topic_name}: {response_excerpt}"
+        if standard_excerpt:
+            action += f". Compare it with the expected standard: {standard_excerpt}"
+        action_items.append(action)
     if not action_items:
-        action_items = ["General course material review"]
+        action = f"Review {topic_name} course material"
+        if response_excerpt:
+            action += f" and revisit your response: {response_excerpt}"
+        if standard_excerpt:
+            action += f". Compare it with the expected standard: {standard_excerpt}"
+        action_items = [action]
         
     return {
         "student_id": student_id,

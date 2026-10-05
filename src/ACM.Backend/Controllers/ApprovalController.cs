@@ -75,6 +75,16 @@ public class ApprovalController : ControllerBase
             .Select(log => ToApprovalHistoryDto(log, log.Plan!)));
     }
 
+    [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Professor,Admin")]
+    public async Task<IActionResult> DeletePlan(Guid id)
+    {
+        var deleted = await _approvalService.DeleteRemedialPlanAsync(id);
+        if (!deleted) return NotFound(new { message = "Plan not found." });
+
+        return Ok(new { message = "Plan deleted successfully." });
+    }
+
     /// <summary>
     /// Gets the authenticated student's active remedial plans and approved tasks.
     /// </summary>
@@ -184,15 +194,32 @@ public class ApprovalController : ControllerBase
             StudentId = plan.StudentId,
             StudentName = studentName,
             StudentEmail = plan.Student?.Email,
-            TopicName = plan.MasteryReport?.TopicName,
+            TopicName = FirstDisplayName(
+                plan.Session?.Topic?.Title,
+                plan.MasteryReport?.TopicName,
+                plan.Session?.Topic?.Module?.Title),
+            ModuleName = FirstDisplayName(
+                plan.Session?.Topic?.Module?.Title,
+                plan.Session?.Topic?.Title,
+                plan.MasteryReport?.TopicName),
             MasteryScore = plan.MasteryReport?.MasteryScore,
             FlaggedMisconceptions = plan.MasteryReport?.FlaggedMisconceptions ?? new List<string>(),
+            StudentSubmission = plan.StudentSubmission,
+            ExpectedStandard = plan.ExpectedStandard,
             ApprovalStatus = plan.ApprovalStatus,
             ActionItems = plan.ActionItems,
             ProfessorNotes = plan.ProfessorNotes,
             ApprovedAt = plan.ApprovedAt,
             CreatedAt = plan.CreatedAt
         };
+    }
+
+    private static string? FirstDisplayName(params string?[] values)
+    {
+        return values.FirstOrDefault(value =>
+            !string.IsNullOrWhiteSpace(value)
+            && !string.Equals(value.Trim(), "Unassigned module", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(value.Trim(), "Unknown Module", StringComparison.OrdinalIgnoreCase));
     }
 
     private static ApprovalHistoryDto ToApprovalHistoryDto(ApprovalLog log, RemedialPlan plan)
@@ -208,6 +235,8 @@ public class ApprovalController : ControllerBase
             TopicName = dto.TopicName,
             MasteryScore = dto.MasteryScore,
             FlaggedMisconceptions = dto.FlaggedMisconceptions,
+            StudentSubmission = dto.StudentSubmission,
+            ExpectedStandard = dto.ExpectedStandard,
             ApprovalStatus = dto.ApprovalStatus,
             ActionItems = dto.ActionItems,
             ProfessorNotes = dto.ProfessorNotes,

@@ -9,7 +9,9 @@ const normalizePlan = (plan) => {
   const actionItems = plan.actionItems ?? plan.ActionItems ?? [];
   const misconceptions = report.flaggedMisconceptions ?? report.FlaggedMisconceptions ?? [];
   const score = report.masteryScore ?? report.MasteryScore ?? plan.masteryScore ?? plan.MasteryScore ?? 0;
-  const id = plan.id ?? plan.Id ?? plan.planId ?? plan.PlanId;
+  const id = plan.planId ?? plan.PlanId ?? plan.id ?? plan.Id ?? plan.approvalId ?? plan.ApprovalId;
+  const topicName = plan.topicName ?? plan.TopicName ?? report.topicName ?? report.TopicName ?? '';
+  const moduleName = plan.moduleName ?? plan.ModuleName ?? '';
 
   return {
     ...plan,
@@ -19,13 +21,18 @@ const normalizePlan = (plan) => {
     studentId: plan.studentId ?? plan.StudentId,
     studentName: plan.studentName ?? plan.StudentName,
     studentEmail: plan.studentEmail ?? plan.StudentEmail,
-    module: plan.module ?? plan.Module ?? report.topicName ?? report.TopicName ?? 'Unassigned module',
-    courseModule: plan.courseModule ?? plan.CourseModule ?? report.topicName ?? report.TopicName ?? 'Unassigned module',
+    topicName,
+    moduleName,
+    topic: plan.topic ?? plan.Topic ?? '',
+    module: (plan.module ?? plan.Module) || topicName || moduleName || 'General Topic',
+    courseModule: (plan.courseModule ?? plan.CourseModule) || topicName || moduleName || 'General Topic',
     date: plan.date ?? plan.Date ?? plan.createdAt ?? plan.CreatedAt,
     createdAt: plan.createdAt ?? plan.CreatedAt,
     masteryScore: score,
     score,
     missingConcepts: misconceptions,
+    studentSubmission: plan.studentSubmission ?? plan.StudentSubmission ?? '',
+    expectedStandard: plan.expectedStandard ?? plan.ExpectedStandard ?? '',
     remedialPlan: actionItems,
     approvalStatus: plan.approvalStatus ?? plan.ApprovalStatus,
     feedback: plan.professorNotes ?? plan.ProfessorNotes,
@@ -70,6 +77,10 @@ const approvalService = {
       if (error.response?.status === 404) return [];
       throw error;
     }
+  },
+
+  async deletePlan(id) {
+    await apiClient.delete(`/Approval/${id}`);
   },
 };
 

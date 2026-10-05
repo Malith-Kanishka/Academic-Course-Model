@@ -36,9 +36,11 @@ public class ApprovalService : IApprovalService
             StudentId = dto.StudentId,
             ApprovalStatus = requiresApproval ? "PAUSED_FOR_PROFESSOR_APPROVAL" : "APPROVED_ACTIVE",
             ApprovedAt = requiresApproval ? null : DateTime.UtcNow,
-            ActionItems = dto.FlaggedMisconceptions
-                .Select(m => $"Review concept: {m}")
-                .ToList()
+            StudentSubmission = dto.StudentSubmission,
+            ExpectedStandard = dto.ExpectedStandard,
+            ActionItems = dto.RemedialActionItems.Count > 0
+                ? dto.RemedialActionItems
+                : dto.FlaggedMisconceptions.Select(m => $"Review concept: {m}").ToList()
         };
 
         report.RemedialPlan = plan;
@@ -61,17 +63,20 @@ public class ApprovalService : IApprovalService
 
     public async Task<IEnumerable<RemedialPlan>> GetPendingApprovalsAsync()
     {
-        return await _context.RemedialPlans
+        var plans = await _context.RemedialPlans
             .AsNoTracking()
             .Include(plan => plan.Student)
             .Include(plan => plan.MasteryReport)
             .Where(plan => plan.ApprovalStatus == "PAUSED_FOR_PROFESSOR_APPROVAL")
             .ToListAsync();
+
+        await LoadSessionTopicsAsync(plans);
+        return plans;
     }
 
     public async Task<IEnumerable<ApprovalLog>> GetApprovalHistoryAsync()
     {
-        return await _context.ApprovalLogs
+        var history = await _context.ApprovalLogs
             .AsNoTracking()
             .Include(log => log.Plan)
                 .ThenInclude(plan => plan!.Student)
@@ -79,6 +84,44 @@ public class ApprovalService : IApprovalService
                 .ThenInclude(plan => plan!.MasteryReport)
             .OrderByDescending(log => log.Timestamp)
             .ToListAsync();
+
+        await LoadSessionTopicsAsync(history
+            .Where(log => log.Plan is not null)
+            .Select(log => log.Plan!));
+        return history;
+    }
+
+    public async Task<bool> DeleteRemedialPlanAsync(Guid planId)
+    {
+        var plan = await _context.RemedialPlans
+            .Include(item => item.ApprovalLogs)
+            .FirstOrDefaultAsync(item => item.Id == planId);
+        if (plan is null) return false;
+
+        _context.ApprovalLogs.RemoveRange(plan.ApprovalLogs);
+        _context.RemedialPlans.Remove(plan);
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    private async Task LoadSessionTopicsAsync(IEnumerable<RemedialPlan> plans)
+    {
+        var planList = plans.ToList();
+        var sessionIds = planList.Select(plan => plan.SessionId).Distinct().ToList();
+        if (sessionIds.Count == 0) return;
+
+        var sessions = await _context.StudySessions
+            .AsNoTracking()
+            .Include(session => session.Topic)
+                .ThenInclude(topic => topic!.Module)
+            .Where(session => sessionIds.Contains(session.Id))
+            .ToDictionaryAsync(session => session.Id);
+
+        foreach (var plan in planList)
+        {
+            if (sessions.TryGetValue(plan.SessionId, out var session))
+                plan.Session = session;
+        }
     }
 
     /// <summary>Gets active remedial plans belonging to the specified student.</summary>
