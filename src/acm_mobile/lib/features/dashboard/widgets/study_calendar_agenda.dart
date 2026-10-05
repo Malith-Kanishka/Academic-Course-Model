@@ -264,75 +264,67 @@ class _PlanAgendaItem extends StatelessWidget {
   final VoidCallback onLaunch;
 
   @override
-  Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(top: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF161B2E),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.graphic_eq_rounded,
-                    size: 18, color: AppTheme.emerald),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Socratic Arena · ${plan.topicName}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: AppTheme.textPrimary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ),
-                Text('Day $day of 7',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppTheme.emerald,
-                          fontWeight: FontWeight.w700,
-                        )),
-              ],
-            ),
-            if (plan.actionItems.isNotEmpty) ...[
-              const SizedBox(height: 9),
-              for (final task in plan.actionItems)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 5),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4),
-                        child: Icon(Icons.circle,
-                            size: 6, color: AppTheme.textMuted),
+  Widget build(BuildContext context) {
+    final todayTask = plan.actionItems.isEmpty
+        ? null
+        : plan.actionItems[
+            (day - 1).clamp(0, plan.actionItems.length - 1).toInt()];
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF161B2E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.graphic_eq_rounded,
+                  size: 18, color: AppTheme.emerald),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  plan.topicName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w700,
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(task,
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: AppTheme.textMuted,
-                                    )),
-                      ),
-                    ],
-                  ),
                 ),
-            ],
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: onLaunch,
-                icon: const Icon(Icons.arrow_forward_rounded, size: 16),
-                label: const Text('Practice'),
               ),
+              Text('Day $day of 7',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppTheme.emerald,
+                        fontWeight: FontWeight.w700,
+                      )),
+            ],
+          ),
+          if (todayTask != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Day $day: $todayTask',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: AppTheme.textMuted),
             ),
           ],
-        ),
-      );
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: onLaunch,
+              icon: const Icon(Icons.map_outlined, size: 16),
+              label: const Text('View full 7-day roadmap →'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _EmptyAgenda extends StatelessWidget {

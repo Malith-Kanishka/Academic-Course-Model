@@ -153,11 +153,12 @@ public class ApprovalService : IApprovalService
         }
     }
 
-    public async Task<bool> DeleteRemedialPlanAsync(Guid planId)
+    public async Task<bool> DeleteRemedialPlanAsync(Guid planId, Guid? studentId = null)
     {
         var plan = await _context.RemedialPlans
             .Include(item => item.ApprovalLogs)
-            .FirstOrDefaultAsync(item => item.Id == planId);
+            .FirstOrDefaultAsync(item => item.Id == planId
+                && (!studentId.HasValue || item.StudentId == studentId.Value));
         if (plan is null) return false;
 
         _context.ApprovalLogs.RemoveRange(plan.ApprovalLogs);
