@@ -18,6 +18,7 @@ import '../../features/dashboard/models/student_dashboard_summary.dart';
 import '../../features/remediation/screens/feedback_dashboard_screen.dart';
 import '../../features/remediation/state/remediation_controller.dart';
 import '../../features/remediation/services/remediation_service.dart';
+import '../../features/remedial/pages/remedial_plans_page.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/curriculum/screens/topic_detail_screen.dart';
 import '../../features/evaluations/screens/remedial_plan_screen.dart';
@@ -35,6 +36,7 @@ abstract final class AppRouter {
               (authController.user?['role'] ?? '').toString().toLowerCase();
           final isDepartmentHead =
               role.contains('head') || role.contains('admin') || role == '0';
+          final isStudent = role.contains('student') || role == '3';
           final canReviewApprovals = isDepartmentHead ||
               role.contains('lecturer') ||
               role.contains('professor') ||
@@ -46,6 +48,7 @@ abstract final class AppRouter {
           if (!isLoggedIn && path != '/login') return '/login';
           if (isLoggedIn && path == '/login') return '/dashboard';
           if (path == '/admin/users' && !isDepartmentHead) return '/dashboard';
+          if (path == '/remedial-plans' && !isStudent) return '/dashboard';
           if ((path == '/evaluations' ||
                   (path == '/remedial-plan' && !isStudentPlanDetails)) &&
               !canReviewApprovals) {
@@ -69,6 +72,20 @@ abstract final class AppRouter {
                 GoRoute(
                   path: '/dashboard',
                   builder: (context, state) => const DashboardScreen(),
+                ),
+              ]),
+              StatefulShellBranch(routes: [
+                GoRoute(
+                  path: '/remedial-plans',
+                  builder: (context, state) {
+                    final extra = state.extra;
+                    final args = extra is Map
+                        ? Map<String, dynamic>.from(extra)
+                        : const <String, dynamic>{};
+                    return RemedialPlansPage(
+                      initialPlanId: args['planId']?.toString(),
+                    );
+                  },
                 ),
               ]),
               StatefulShellBranch(routes: [
@@ -175,7 +192,7 @@ class DashboardShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const titles = ['The Grid', 'Courses', 'Profile'];
+    const titles = ['Home', 'Plans', 'Courses', 'Profile'];
     return Scaffold(
       appBar: AppBar(
         title: Text(titles[navigationShell.currentIndex]),
@@ -196,11 +213,13 @@ class DashboardShell extends StatelessWidget {
         ),
         destinations: const [
           NavigationDestination(
-              icon: Icon(Icons.grid_view_rounded), label: 'Home'),
+              icon: Icon(Icons.dashboard_rounded), label: 'Home'),
           NavigationDestination(
-              icon: Icon(Icons.school_outlined), label: 'Courses'),
+              icon: Icon(Icons.assignment_turned_in_rounded), label: 'Plans'),
           NavigationDestination(
-              icon: Icon(Icons.person_outline_rounded), label: 'Profile'),
+              icon: Icon(Icons.school_rounded), label: 'Courses'),
+          NavigationDestination(
+              icon: Icon(Icons.person_rounded), label: 'Profile'),
         ],
       ),
     );

@@ -64,7 +64,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _openRemedialPlan(ActiveRemedialPlanSummary plan) {
-    context.go('/remedial-plan', extra: {'activePlan': plan});
+    context.go('/remedial-plans', extra: {'planId': plan.id});
   }
 
   @override
@@ -162,9 +162,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           if (activePlans.isNotEmpty) ...[
             const SizedBox(height: 14),
-            ActiveRemedialProgressBanner(
-              plan: activePlans.first,
-              onContinue: () => _openRemedialPlan(activePlans.first),
+            ActiveRemedialPlansSection(
+              plans: activePlans,
+              onContinue: _openRemedialPlan,
+              onViewAll: () => context.go('/remedial-plans'),
             ),
           ],
           const SizedBox(height: 14),

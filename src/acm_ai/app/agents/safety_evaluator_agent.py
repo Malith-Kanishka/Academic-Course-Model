@@ -4,12 +4,19 @@ import json
 import urllib.request
 import urllib.error
 from typing import List, Dict, Any
+import re
 from pydantic import BaseModel, Field
 
 # Ensure Python can locate the 'app' module regardless of working directory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from app.tools.member4_tools import compute_deterministic_grade, create_draft_remedial_plan
+
+_CORRUPTED_RECOMMENDATION = re.compile(
+    r"(?:topic){2,}|(?:module){2,}|standard:\s*topic\s*\d+\s*topic",
+    re.IGNORECASE,
+)
+_CLEAN_RECOMMENDATION = "Review core concepts and revisit key dialogue steps."
 
 # Input Schema Contract
 class SessionFinalTranscriptDTO(BaseModel):
@@ -40,6 +47,15 @@ class SafetyEvaluatorAgent:
     """
     def evaluate_session(self, payload: Dict[str, Any], send_to_backend: bool = True) -> Dict[str, Any]:
         data = SessionFinalTranscriptDTO(**payload)
+        topic_name = " ".join(data.topic_name.split()) or "General Topic"
+        expected_standard = " ".join(data.expected_standard.split())
+        if _CORRUPTED_RECOMMENDATION.search(expected_standard):
+            expected_standard = ""
+        if not expected_standard:
+            expected_standard = (
+                "Demonstrate core conceptual mastery and provide complete "
+                f"explanations for {topic_name}."
+            )
         
         # 1. Execute tool: Mathematical grade calculation formula
         grade_result = compute_deterministic_grade(
@@ -58,9 +74,13 @@ class SafetyEvaluatorAgent:
             student_id=data.student_id,
             misconceptions=data.flagged_misconceptions,
             student_submission=data.student_submission,
-            expected_standard=data.expected_standard,
-            topic_name=data.topic_name
+            expected_standard=expected_standard,
+            topic_name=topic_name
         )
+        remedial_data["action_items"] = [
+            _CLEAN_RECOMMENDATION if _CORRUPTED_RECOMMENDATION.search(item) else item
+            for item in remedial_data["action_items"]
+        ]
         
         output = EvaluationSummaryDTO(
             session_id=data.session_id,
@@ -80,12 +100,12 @@ class SafetyEvaluatorAgent:
                 backend_payload = {
                     "sessionId": data.session_id,
                     "studentId": data.student_id,
-                    "topicName": data.topic_name,
+                    "topicName": topic_name,
                     "finalScore": score,
                     "flaggedMisconceptions": data.flagged_misconceptions,
                     "sessionTranscript": data.session_transcript,
                     "studentSubmission": data.student_submission,
-                    "expectedStandard": data.expected_standard,
+                    "expectedStandard": expected_standard,
                     "remedialActionItems": remedial_data["action_items"]
                 }
                 json_bytes = json.dumps(backend_payload).encode("utf-8")
