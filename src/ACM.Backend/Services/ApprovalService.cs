@@ -17,11 +17,34 @@ public class ApprovalService : IApprovalService
 
     public async Task<MasteryReport> ProcessSessionEvaluationAsync(SessionFinalTranscriptDTO dto)
     {
+        var topicName = dto.TopicName?.Trim();
+        var expectedStandard = dto.ExpectedStandard?.Trim();
+        if (string.IsNullOrWhiteSpace(expectedStandard))
+        {
+            var session = await _context.StudySessions
+                .AsNoTracking()
+                .Include(item => item.Topic)
+                    .ThenInclude(topic => topic!.Module)
+                .FirstOrDefaultAsync(item => item.Id == dto.SessionId);
+
+            topicName = session?.Topic?.Title?.Trim()
+                ?? session?.Topic?.Module?.Title?.Trim()
+                ?? topicName;
+            expectedStandard = session?.Topic?.ContentDescription?.Trim();
+            if (string.IsNullOrWhiteSpace(expectedStandard))
+                expectedStandard = session?.Topic?.Module?.Description?.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(topicName))
+            topicName = "General Topic";
+        if (string.IsNullOrWhiteSpace(expectedStandard))
+            expectedStandard = $"Demonstrate core conceptual mastery and provide complete explanations for {topicName}.";
+
         var report = new MasteryReport
         {
             SessionId = dto.SessionId,
             StudentId = dto.StudentId,
-            TopicName = dto.TopicName,
+            TopicName = topicName,
             MasteryScore = dto.FinalScore,
             FlaggedMisconceptions = dto.FlaggedMisconceptions
         };
@@ -37,11 +60,12 @@ public class ApprovalService : IApprovalService
             ApprovalStatus = requiresApproval ? "PAUSED_FOR_PROFESSOR_APPROVAL" : "APPROVED_ACTIVE",
             ApprovedAt = requiresApproval ? null : DateTime.UtcNow,
             StudentSubmission = dto.StudentSubmission,
-            ExpectedStandard = dto.ExpectedStandard,
+            ExpectedStandard = expectedStandard,
             ActionItems = dto.RemedialActionItems.Count > 0
                 ? dto.RemedialActionItems
                 : dto.FlaggedMisconceptions.Select(m => $"Review concept: {m}").ToList()
         };
+        SanitizeActionItems(new[] { plan });
 
         report.RemedialPlan = plan;
         _context.MasteryReports.Add(report);
@@ -71,6 +95,8 @@ public class ApprovalService : IApprovalService
             .ToListAsync();
 
         await LoadSessionTopicsAsync(plans);
+        SanitizeExpectedStandards(plans);
+        SanitizeActionItems(plans);
         return plans;
     }
 
@@ -85,10 +111,46 @@ public class ApprovalService : IApprovalService
             .OrderByDescending(log => log.Timestamp)
             .ToListAsync();
 
-        await LoadSessionTopicsAsync(history
+        var plans = history
             .Where(log => log.Plan is not null)
-            .Select(log => log.Plan!));
+            .Select(log => log.Plan!)
+            .ToList();
+        await LoadSessionTopicsAsync(plans);
+        SanitizeExpectedStandards(plans);
+        SanitizeActionItems(plans);
         return history;
+    }
+
+    private static void SanitizeActionItems(IEnumerable<RemedialPlan> plans)
+    {
+        foreach (var plan in plans)
+        {
+            var topicName = plan.Session?.Topic?.Title?.Trim();
+            if (string.IsNullOrWhiteSpace(topicName))
+                topicName = plan.MasteryReport?.TopicName?.Trim();
+
+            plan.ActionItems = (plan.ActionItems ?? new List<string>())
+                .Select(item => RemedialPlanDto.SanitizeActionItem(item, topicName))
+                .ToList();
+        }
+    }
+
+    private static void SanitizeExpectedStandards(IEnumerable<RemedialPlan> plans)
+    {
+        foreach (var plan in plans)
+        {
+            if (!plan.ExpectedStandard.Contains("topictopic", StringComparison.OrdinalIgnoreCase)
+                && !plan.ExpectedStandard.Contains("modulemodule", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var topicName = plan.Session?.Topic?.Title?.Trim();
+            if (string.IsNullOrWhiteSpace(topicName))
+                topicName = plan.MasteryReport?.TopicName?.Trim();
+            if (string.IsNullOrWhiteSpace(topicName))
+                topicName = "this topic";
+
+            plan.ExpectedStandard = $"Demonstrate core conceptual mastery and provide complete explanations for {topicName}.";
+        }
     }
 
     public async Task<bool> DeleteRemedialPlanAsync(Guid planId)
@@ -152,6 +214,7 @@ public class ApprovalService : IApprovalService
         string? editedPlanSummary)
     {
         var plan = await _context.RemedialPlans
+            .Include(item => item.MasteryReport)
             .FirstOrDefaultAsync(p => p.Id == planId);
         if (plan == null) return null;
 
@@ -161,6 +224,7 @@ public class ApprovalService : IApprovalService
         {
             plan.ActionItems = editedPlanSummary
                 .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(item => RemedialPlanDto.SanitizeActionItem(item, plan.MasteryReport?.TopicName))
                 .ToList();
         }
         plan.ApprovedAt = DateTime.UtcNow;

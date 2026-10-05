@@ -264,17 +264,26 @@ namespace ACM.Backend.Services
             
             var orderedTurns = session.DialogueTurns.OrderBy(turn => turn.Timestamp).ToList();
             var studentSubmission = string.Join("\n", studentTurns.Select(turn => turn.Text));
-            var expectedStandard = string.Join("\n", new[]
-            {
-                session.Topic?.Title,
-                session.Topic?.ContentDescription,
-                session.Topic?.Module?.Description
-            }.Where(text => !string.IsNullOrWhiteSpace(text)));
+            var topicName = session.Topic?.Title?.Trim();
+            if (string.IsNullOrWhiteSpace(topicName))
+                topicName = session.Topic?.Module?.Title?.Trim();
+            if (string.IsNullOrWhiteSpace(topicName))
+                topicName = "General Topic";
+
+            var expectedStandard = new[]
+                {
+                    session.Topic?.ContentDescription,
+                    session.Topic?.Module?.Description
+                }
+                .FirstOrDefault(text => !string.IsNullOrWhiteSpace(text))
+                ?.Trim();
+            if (string.IsNullOrWhiteSpace(expectedStandard))
+                expectedStandard = $"Demonstrate core conceptual mastery and provide complete explanations for {topicName}.";
             var payload = new
             {
                 session_id = sessionId.ToString(),
                 student_id = session.StudentId.ToString(),
-                topic_name = session.Topic?.Title ?? session.Topic?.Module?.Title ?? "Assessed Topic",
+                topic_name = topicName,
                 correct_answers = correctAnswers,
                 total_questions = totalQuestions,
                 flagged_misconceptions = misconceptions,

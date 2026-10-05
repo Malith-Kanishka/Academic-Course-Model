@@ -3,14 +3,27 @@ import { useCallback, useEffect, useState } from 'react';
 import MasteryChart from './MasteryChart';
 import TraceDiffViewer from './TraceDiffViewer';
 
+const CORRUPTED_RECOMMENDATION = /(?:topic){2,}|(?:module){2,}|standard:\s*topic\s*\d+\s*(?:topic)+/i;
+
+const sanitizeRecommendation = (value, topicName) => {
+  if (typeof value !== 'string') return '';
+  if (!CORRUPTED_RECOMMENDATION.test(value)) return value.trim();
+
+  const name = typeof topicName === 'string' && topicName.trim() ? topicName.trim() : 'this topic';
+  return `Review core concepts for ${name} and revisit key dialogue steps regarding student queries.`;
+};
+
 const initialPlanSummary = (approval) => {
   const summary = approval.remedialPlanSummary ?? approval.planSummary;
-  if (typeof summary === 'string') return summary;
+  if (typeof summary === 'string') return sanitizeRecommendation(summary, approval.topicName);
 
-  const rawPlan = approval.remedialPlan ?? approval.plan ?? [];
+  const rawPlan = approval.actionItems ?? approval.ActionItems ?? approval.remedialPlan ?? approval.plan ?? [];
   const items = Array.isArray(rawPlan) ? rawPlan : [rawPlan];
   return items
-    .map((item) => (typeof item === 'string' ? item : item?.description ?? item?.text ?? ''))
+    .map((item) => sanitizeRecommendation(
+      typeof item === 'string' ? item : item?.description ?? item?.text ?? '',
+      approval.topicName,
+    ))
     .filter((item) => item.trim())
     .join('\n');
 };
@@ -27,6 +40,14 @@ function ApprovalModalContent({ approval, onClose, onDecision }) {
   const [feedback, setFeedback] = useState('');
   const [rejecting, setRejecting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const expectedStandard = [approval.expectedStandard, approval.rubric]
+    .find((value) => typeof value === 'string') ?? '';
+  const sanitizedExpectedStandard =
+    typeof expectedStandard === 'string'
+      && (expectedStandard.toLowerCase().includes('topictopic')
+        || expectedStandard.toLowerCase().includes('modulemodule'))
+      ? 'Demonstrate core conceptual mastery and provide complete explanations for this topic.'
+      : expectedStandard;
 
   const submit = useCallback(async (decision) => {
     if (!approval || submitting) return;
@@ -72,8 +93,8 @@ function ApprovalModalContent({ approval, onClose, onDecision }) {
           </button>
         </header>
 
-        <main className="grid flex-1 lg:grid-cols-[0.85fr_1.15fr]">
-          <div className="space-y-5 border-b border-slate-200 p-6 lg:border-b-0 lg:border-r">
+        <main className="grid min-w-0 flex-1 lg:grid-cols-[0.85fr_1.15fr]">
+          <div className="min-w-0 space-y-5 border-b border-slate-200 p-6 lg:border-b-0 lg:border-r">
             <MasteryChart score={approval.masteryScore ?? approval.score} breakdown={approval.breakdown ?? []} />
             <section className="rounded-xl border border-indigo-200 bg-indigo-50/80 p-5">
               <div className="flex items-center justify-between">
@@ -99,12 +120,12 @@ function ApprovalModalContent({ approval, onClose, onDecision }) {
             </div>
           </div>
 
-          <div className="space-y-5 p-6">
+          <div className="min-w-0 flex-1 space-y-5 p-6">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Evidence trace</p>
               <h3 className="mt-1 text-lg font-bold text-slate-900">Submission vs expected standard</h3>
             </div>
-            <TraceDiffViewer studentAnswer={approval.studentSubmission ?? approval.studentAnswer ?? approval.answer} expectedStandard={approval.expectedStandard ?? approval.rubric} missingConcepts={approval.missingConcepts ?? []} />
+            <TraceDiffViewer studentAnswer={approval.studentSubmission ?? approval.studentAnswer ?? approval.answer} expectedStandard={sanitizedExpectedStandard} missingConcepts={approval.missingConcepts ?? []} />
             <label htmlFor="lecturer-notes" className="block text-sm font-semibold text-slate-800">Lecturer Notes / Custom Feedback</label>
             <textarea
               id="lecturer-notes"
