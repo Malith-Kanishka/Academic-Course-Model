@@ -9,7 +9,8 @@ placeholders for the other agents' nodes.
 """
 from __future__ import annotations
 
-from typing import Literal, TypedDict
+from typing import Literal
+from typing_extensions import TypedDict
 from uuid import UUID
 
 from app.schemas.session_schemas import NextTurnDirectiveDTO, SessionAgendaDTO

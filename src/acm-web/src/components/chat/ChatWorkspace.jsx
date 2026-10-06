@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { useLanguageStore } from '../../store/languageStore';
 
 /* ─── Constants ─────────────────────────────────────────────────────────── */
-const AI_BASE = 'http://localhost:8000';
+const AI_BASE = import.meta.env.VITE_AI_BASE_URL || 'http://localhost:8000';;
 
 /* ─── i18n strings ──────────────────────────────────────────────────────── */
 const STRINGS = {

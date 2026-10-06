@@ -13,23 +13,22 @@ import os
 from typing import Any, Dict, List, Set
 
 from dotenv import load_dotenv
-
-load_dotenv()
-
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sentence_transformers import SentenceTransformer
 from langchain_groq import ChatGroq
 from pydantic import BaseModel
+from sentence_transformers import SentenceTransformer
 
 from app.agents.coordinator_agent import SessionCoordinatorAgent
 from app.agents.knowledge_auditor_agent import audit_student_claim
-from app.agents.socratic_adversary_agent import SocraticAdversary
 from app.agents.safety_evaluator_agent import SafetyEvaluatorAgent, SessionFinalTranscriptDTO
+from app.agents.socratic_adversary_agent import SocraticAdversary
 from app.graph.state import WorkflowState
+from app.routers.rag import router as rag_router
 from app.schemas.audit_schemas import FactAuditRequest, FactAuditResultDTO
 from app.schemas.session_schemas import NextTurnDirectiveDTO, SessionAgendaDTO, SessionInitRequest
-from app.routers.rag import router as rag_router
+
+load_dotenv()
 
 # Setup logger for Uvicorn terminal output
 logger = logging.getLogger("uvicorn.error")
@@ -44,23 +43,21 @@ except ImportError:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan event handler to pre-load and verify Groq LLM before startup completes."""
+    """Lifespan event handler to pre-load Groq LLM before startup completes."""
     logger.info("Initializing Groq LLM...")
     groq_api_key = os.getenv("GROQ_API_KEY")
-    
+
     if not groq_api_key:
         logger.warning("GROQ_API_KEY environment variable is not set!")
     else:
         try:
-            # Pre-instantiate and warm up Groq model
             model_name = (
                 os.getenv("GROQ_MODEL")
                 or os.getenv("GROQ_MODEL_NAME")
                 or "openai/gpt-oss-20b"
             )
             groq_llm = ChatGroq(groq_api_key=groq_api_key, model=model_name)
-            
-            # Attach to socratic_agent if supported
+
             if hasattr(socratic_agent, "llm"):
                 socratic_agent.llm = groq_llm
 
@@ -68,12 +65,8 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"Failed to load Groq LLM: {e}")
 
-    try:
-        logger.info("Initializing SentenceTransformer embedding model...")
-        SentenceTransformer("all-MiniLM-L6-v2")
-        logger.info("Embedding model loaded successfully.")
-    except Exception as e:
-        logger.error(f"Failed to load embedding model: {e}")
+    # Note: SentenceTransformer is removed from lifespan startup 
+    # to allow Gunicorn to bind port 8000 instantly without timing out.
 
     yield
     logger.info("Shutting down ACM AI Microservice...")
@@ -144,7 +137,6 @@ class DialogueRequest(BaseModel):
     topic_name: str = "Unknown Topic"
     turn_count: int = 0
     history: List[str] = []
-
 
 
 class AIResponse(BaseModel):
@@ -231,10 +223,10 @@ async def process_dialogue(request: DialogueRequest):
                 history=request.history
             )
 
-
         return AIResponse(ai_text=response_text)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/internal/evaluate-session")
 def evaluate_session_endpoint(payload: SessionFinalTranscriptDTO):

@@ -9,7 +9,7 @@ import slide4 from '../assets/04.jpg';
 const slides = [
   {
     img: slide1,
-    headline: 'Learn Smarter,\nNot Harder.',
+    headline: 'Learn Smarter,\nNot Harder.+text',
     sub: 'Your AI study companion is ready whenever you are.',
   },
   {
